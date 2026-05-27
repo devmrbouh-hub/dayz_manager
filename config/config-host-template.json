@@ -1,0 +1,142 @@
+{
+  "comment": "ШАБЛОН КОНФИГА ПОД ХОСТ — скопируйте на хост и подставьте реальные значения",
+
+  "steam": {
+    "username": "your_steam_login",
+    "password": "your_steam_password",
+    "guard_code": null,
+    "steamcmd_path": "D:\\путь\\к\\steamcmd\\steamcmd.exe",
+    "dayz_install_path": "D:\\путь\\к\\Steam",
+    "workshop_path": "D:\\путь\\к\\DayZ\\!Workshop"
+  },
+
+  "rcon": {
+    "client_path": "D:\\DayZManager\\bercon-cli.exe"
+  },
+
+  "servers": [
+    {
+      "id": "server1",
+      "name": "BANOV #1",
+      "path": "D:\\Servers\\Banov1",
+      "exe": "DayZServer_x64.exe",
+      "port": 2302,
+      "query_port": 2303,
+      "rcon_port": 2304,
+      "rcon_password": "rcon_password_1",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2304,
+        "password": "rcon_password_1",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "@ServerMod",
+      "launch_args": ["-noupdate", "-netlog", "-adminlog"],
+      "auto_restart": true,
+      "hide_console": true,
+      "startup_ready_marker": "[IdleMode] Entering IN - save processed",
+      "planned_restart": {
+        "enabled": false,
+        "interval_minutes": 240,
+        "test_mode": false
+      },
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    },
+    {
+      "id": "server2",
+      "name": "BANOV #2",
+      "path": "D:\\Servers\\Banov2",
+      "exe": "DayZServer_x64.exe",
+      "port": 2402,
+      "query_port": 2403,
+      "rcon_port": 2404,
+      "rcon_password": "rcon_password_2",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2404,
+        "password": "rcon_password_2",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "@ServerMod",
+      "launch_args": ["-noupdate", "-netlog", "-adminlog"],
+      "auto_restart": true,
+      "hide_console": true,
+      "startup_ready_marker": "[IdleMode] Entering IN - save processed",
+      "planned_restart": {
+        "enabled": false,
+        "interval_minutes": 240,
+        "test_mode": false
+      },
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    }
+  ],
+
+  "scheduler": {
+    "mod_check_interval": 600,
+    "log_clean_interval": 86400,
+    "restart_schedule": [
+      {
+        "server_id": "server1",
+        "time": "04:00",
+        "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+      }
+    ]
+  },
+
+  "notifications": {
+    "discord": {
+      "enabled": false,
+      "token": "",
+      "channel_id": ""
+    }
+  },
+
+  "auth": {
+    "api_key": "ИЗМЕНИТЕ_ЭТОТ_API_КЛЮЧ",
+    "users": [
+      { "username": "admin", "password": "admin_pass", "role": "admin" },
+      { "username": "viewer", "password": "view_pass", "role": "viewer" }
+    ]
+  },
+
+  "web": {
+    "host": "0.0.0.0",
+    "port": 8000
+  },
+
+  "settings": {
+    "watchdog_interval": 10,
+    "restart_notify_minutes": 5,
+    "log_retention_days": 2,
+    "start_confirm_timeout": 90,
+    "startup_ready_timeout_sec": 180,
+    "rpt_tail_buffer_lines": 500,
+    "rpt_poll_interval_ms": 200
+  }
+}

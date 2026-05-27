@@ -1,0 +1,242 @@
+{
+  "comment": "Шаблон под хост NRU90 / Windows Server 2022. Для первичной настройки этого хоста не используйте кнопку Add Server в Web UI: здесь у серверов разные exe и разные реальные порты/query/rcon.",
+
+  "steam": {
+    "auth_mode": "session",
+    "username": "",
+    "password": "",
+    "guard_code": null,
+    "steamcmd_path": "C:\\steamcmd\\steamcmd.exe",
+    "dayz_install_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ",
+    "workshop_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ\\!Workshop"
+  },
+
+  "servers": [
+    {
+      "id": "banov",
+      "name": "Future Land PVE - Banov",
+      "path": "C:\\DAYZSERVER\\BANOV",
+      "exe": "DayZServer_x64.exe",
+      "port": 2232,
+      "query_port": 2905,
+      "rcon_port": 2943,
+      "rcon_password": "CHANGE_ME",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2943,
+        "password": "CHANGE_ME",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "@GainZ - Server FPS boost,@ServerMod",
+      "launch_args": [
+        "-noupdate",
+        "-netlog",
+        "-adminlog"
+      ],
+      "auto_restart": true,
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    },
+    {
+      "id": "deerisle",
+      "name": "Future Land PVE - DeerIsle",
+      "path": "C:\\DAYZSERVER\\DeerIsle",
+      "exe": "DayZServer_x641.exe",
+      "port": 2422,
+      "query_port": 2915,
+      "rcon_port": 2910,
+      "rcon_password": "CHANGE_ME",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2910,
+        "password": "CHANGE_ME",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "@GainZ - Server FPS boost,@ServerMod",
+      "launch_args": [
+        "-noupdate",
+        "-netlog",
+        "-adminlog"
+      ],
+      "auto_restart": true,
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    },
+    {
+      "id": "chernarus",
+      "name": "chernarusplus",
+      "path": "C:\\DAYZSERVER\\Chernarus",
+      "exe": "DayZServer_x642.exe",
+      "port": 2452,
+      "query_port": 2501,
+      "rcon_port": 2911,
+      "rcon_password": "CHANGE_ME",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2911,
+        "password": "CHANGE_ME",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "",
+      "launch_args": [
+        "-noupdate",
+        "-netlog",
+        "-adminlog"
+      ],
+      "auto_restart": false,
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    },
+    {
+      "id": "server4",
+      "name": "Future server #4",
+      "path": "C:\\DAYZSERVER\\Server4",
+      "exe": "DayZServer_x643.exe",
+      "port": 2462,
+      "query_port": 2463,
+      "rcon_port": 2912,
+      "rcon_password": "CHANGE_ME",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2912,
+        "password": "CHANGE_ME",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "",
+      "launch_args": [
+        "-noupdate",
+        "-netlog",
+        "-adminlog"
+      ],
+      "auto_restart": false,
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    },
+    {
+      "id": "server5",
+      "name": "Future server #5",
+      "path": "C:\\DAYZSERVER\\Server5",
+      "exe": "DayZServer_x644.exe",
+      "port": 2472,
+      "query_port": 2473,
+      "rcon_port": 2913,
+      "rcon_password": "CHANGE_ME",
+      "rcon": {
+        "enabled": true,
+        "host": "127.0.0.1",
+        "port": 2913,
+        "password": "CHANGE_ME",
+        "mode": "preferred",
+        "timeout": 10
+      },
+      "battleye": {
+        "path": "Instance_1\\BattlEye"
+      },
+      "config_file": "Instance_1\\serverDZ.cfg",
+      "profiles": "Instance_1",
+      "mods_file": "mod_list.txt",
+      "keys_dir": "keys",
+      "mods": [],
+      "server_mods": "",
+      "launch_args": [
+        "-noupdate",
+        "-netlog",
+        "-adminlog"
+      ],
+      "auto_restart": false,
+      "hooks": {
+        "beforeStart": [],
+        "afterStop": []
+      }
+    }
+  ],
+
+  "scheduler": {
+    "mod_check_interval": 600,
+    "log_clean_interval": 86400,
+    "restart_schedule": []
+  },
+
+  "notifications": {
+    "discord": {
+      "enabled": false,
+      "token": "",
+      "channel_id": ""
+    }
+  },
+
+  "auth": {
+    "api_key": "CHANGE_THIS_API_KEY",
+    "users": [
+      {
+        "username": "admin",
+        "password": "admin_pass",
+        "role": "admin"
+      },
+      {
+        "username": "viewer",
+        "password": "view_pass",
+        "role": "viewer"
+      }
+    ]
+  },
+
+  "web": {
+    "host": "0.0.0.0",
+    "port": 8000
+  },
+
+  "settings": {
+    "watchdog_interval": 10,
+    "restart_notify_minutes": 5,
+    "log_retention_days": 2
+  }
+}

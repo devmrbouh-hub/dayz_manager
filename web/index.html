@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DayZ Server Manager</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1>🎮 DayZ Server Manager</h1>
+            </div>
+            <div class="header-right">
+                <input type="password" id="api-key-input" class="api-key-input" 
+                       placeholder="API Key" title="API Key for authentication">
+                <span id="connection-status" class="status-dot offline"></span>
+                <span id="connection-text">Disconnected</span>
+                <button id="btn-shutdown" class="btn btn-danger btn-small" onclick="shutdownManager()" title="Выключить менеджер">⏻ Shutdown</button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Servers Section -->
+            <section class="servers">
+                <div class="section-header">
+                    <h2>Servers</h2>
+                    <button id="btn-refresh" class="btn btn-secondary" onclick="refreshServers()">🔄 Refresh</button>
+                </div>
+                <div id="servers-container" class="servers-container">
+                    <!-- Servers will be loaded here -->
+                </div>
+            </section>
+
+            <!-- Logs Section -->
+            <section class="logs">
+                <div class="section-header">
+                    <h2>Live Logs</h2>
+                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
+                </div>
+                <div id="logs-container" class="logs-container">
+                    <!-- Logs will be loaded here -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add Server Modal -->
+    <div id="add-server-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Add Server</h3>
+                <button class="close-btn" onclick="closeAddServerModal()">&times;</button>
+            </div>
+            <form id="add-server-form" onsubmit="addServer(event)">
+                <div class="form-group">
+                    <label for="server-id">Server ID</label>
+                    <input type="text" id="server-id" required placeholder="e.g., banov">
+                </div>
+                <div class="form-group">
+                    <label for="server-name">Name</label>
+                    <input type="text" id="server-name" required placeholder="e.g., BANOV">
+                </div>
+                <div class="form-group">
+                    <label for="server-path">Path</label>
+                    <input type="text" id="server-path" required placeholder="e.g., D:\Banov">
+                </div>
+                <div class="form-group">
+                    <label for="server-port">Port</label>
+                    <input type="number" id="server-port" required placeholder="e.g., 2232">
+                </div>
+                <div class="form-group">
+                    <label for="rcon-port">RCON Port</label>
+                    <input type="number" id="rcon-port" required placeholder="e.g., 2234">
+                </div>
+                <div class="form-group">
+                    <label for="rcon-password">RCON Password</label>
+                    <input type="password" id="rcon-password" required>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Add Server</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddServerModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/server_status.js?v=1"></script>
+    <script src="js/app.js?v=12"></script>
+</body>
+</html>

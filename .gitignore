@@ -1,0 +1,42 @@
+# Локальный конфиг с API-ключами и паролями
+config/config.json
+
+# Сборка и артефакты
+build/
+dist/
+dist_build/
+__pycache__/
+*.pyc
+*.pyo
+
+# Логи и runtime-данные
+logs/
+data/mod_versions.json
+data/mod_hashes.json
+data/state.db
+stderr.log
+
+# Бинарники (берутся отдельно на хост)
+*.exe
+
+# Архивы и чаты
+*.rar
+chats/
+
+# Хостовые артефакты (не исходники)
+Хост/
+docs/archive/
+config/config-host-nru90-chernarus-only.json
+config/config-host-nru90-*
+!config/config-host-nru90-template.json
+
+# Python / IDE
+.pytest_cache/
+.venv/
+venv/
+
+# Временные файлы
+*.log
+temp_*.json
+.DS_Store
+Thumbs.db
