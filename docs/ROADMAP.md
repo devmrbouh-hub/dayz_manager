@@ -1,9 +1,9 @@
 # Roadmap — фаза 2 (admin UI)
 
-Фаза 1 (стабилизация) — ветка `feature/stability`, см. [CHANGELOG.md](CHANGELOG.md).  
-**Admin UI** (`feature/admin-ui`) **влит в `master`** — 2026-05-25, проверено на Banov.
+Фаза 1 (стабилизация) и фаза 2 (admin UI) влиты в **`main`** — см. [CHANGELOG.md](CHANGELOG.md).  
+Planned restart, live stats, чат — проверено на Banov (2026-05).
 
-## Сделано (master)
+## Сделано
 
 - **Planned restart** — интервал от 00:00, этапы T-30/15/10/5/0, RU+EN say, lock + kick на T-5
 - **Web UI** — блок Restart на карточке сервера (auto + planned, Save, Next restart)

@@ -24,18 +24,60 @@
 - Хуки `beforeStart` / `afterStop`
 - Сборка в один EXE (`build.bat`)
 
-## Быстрый старт (разработка)
+## Быстрый старт
+
+### 1. Клонировать и зависимости
 
 ```powershell
+git clone https://github.com/<user>/dayz_manager.git
 cd dayz_manager
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy config\config-host-template.json config\config.json
-# Отредактировать config\config.json (пути, порты, auth.api_key)
-python src/main.py
-# http://127.0.0.1:8000
 ```
 
-`config/config.json` не коммитится в git — секреты и пути хоста только локально.
+### 2. RCON-клиент
+
+Скачайте [bercon-cli](https://github.com/WoozyMasta/bercon-cli) и положите `bercon-cli.exe` в корень проекта  
+или укажите путь в `config.json` → `rcon.client_path` (см. шаблон).
+
+### 3. Конфиг
+
+```powershell
+copy config\config-host-template.json config\config.json
+```
+
+В `config\config.json` обязательно задайте:
+
+| Поле | Что указать |
+|------|-------------|
+| `auth.api_key` | Свой ключ (не `change_this_api_key` — иначе менеджер не стартует) |
+| `steam.steamcmd_path`, `steam.workshop_path` | Пути к SteamCMD и Workshop |
+| `servers[].path`, порты | Папка и порты вашего dedicated server |
+| `servers[].rcon_password` | Как в BattlEye `BEServer_*.cfg` |
+
+Пароль Steam — через `DAYZ_STEAM_USERNAME` / `DAYZ_STEAM_PASSWORD` или поля `steam.*` (см. [CONFIG.md](docs/CONFIG.md)).
+
+`config/config.json` **не в git** — только на вашей машине.
+
+### 4. Запуск
+
+```powershell
+python src/main.py
+```
+
+Откройте **http://127.0.0.1:8000** → введите тот же `auth.api_key` в поле API Key (сохранится в браузере).
+
+### 5. Проверка
+
+```powershell
+pytest
+# или smoke (менеджер должен быть запущен):
+set API_KEY=ваш_ключ_из_config
+test_system.bat
+```
+
+Дальше: [RUNBOOK.md](docs/RUNBOOK.md) (BattlEye, firewall), [DEPLOY.md](docs/DEPLOY.md) (EXE на хост).
 
 ## Production (хост)
 
@@ -61,15 +103,9 @@ dayz_manager/
 └── README.md
 ```
 
-## Ветки и релизы
+## Ветка и релизы
 
-| Ветка | Назначение |
-|-------|------------|
-| `master` | Стабильная база |
-| `feature/stability` | Фаза 1: lock, PID, CRON, settings API |
-| `feature/admin-ui` | Фаза 2: planned restart, UI на карточке сервера — см. [CHANGELOG.md](docs/CHANGELOG.md) |
-
-История изменений: [docs/CHANGELOG.md](docs/CHANGELOG.md).
+Актуальная ветка: **`main`**. Фазы стабилизации и admin UI (planned restart, live stats, чат) влиты — см. [CHANGELOG.md](docs/CHANGELOG.md) и [ROADMAP.md](docs/ROADMAP.md).
 
 Планы масштабирования (интернет, карта, магазин, SaaS): [docs/PRODUCT_ARCHITECTURE.md](docs/PRODUCT_ARCHITECTURE.md).
 

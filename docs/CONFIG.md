@@ -22,14 +22,14 @@
     "password": "",
     "guard_code": null,
     "auth_mode": "credentials",
-    "steamcmd_path": "D:\\Banov\\SteamCMD\\steamcmd.exe",
-    "workshop_path": "D:\\Banov\\SteamCMD\\steamapps\\workshop\\content\\221100"
+    "steamcmd_path": "C:\\steamcmd\\steamcmd.exe",
+    "workshop_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ\\!Workshop"
   },
   "servers": [
     {
       "id": "banov",
       "name": "BANOV",
-      "path": "D:\\Banov",
+      "path": "D:\\Servers\\MyServer",
       "exe": "DayZServer_x64.exe",
       "port": 2302,
       "query_port": 2303,
