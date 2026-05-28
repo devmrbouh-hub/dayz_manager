@@ -61,15 +61,28 @@ async function parseApiError(response) {
 // ============================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Загрузить API-ключ из localStorage в поле ввода
+    initI18n();
+
     const savedKey = localStorage.getItem('dayz_api_key');
     if (savedKey) {
         document.getElementById('api-key-input').value = savedKey;
     }
 
-    // Сохранять API-ключ при изменении
     document.getElementById('api-key-input').addEventListener('change', (e) => {
         localStorage.setItem('dayz_api_key', e.target.value);
+    });
+
+    onLangChange(() => {
+        Object.values(lastServerSnapshot).forEach((server) => {
+            if (server && server.id) {
+                updateServerCard(server);
+            }
+        });
+        const container = document.getElementById('servers-container');
+        const addBtn = container?.querySelector('.add-server-btn');
+        if (addBtn) {
+            addBtn.textContent = t('servers.add');
+        }
     });
 
     refreshServers();
@@ -91,11 +104,113 @@ function ensureAddServerButton(container) {
     if (!btn) {
         btn = document.createElement('button');
         btn.className = 'add-server-btn';
-        btn.innerHTML = '+ Add Server';
+        btn.textContent = t('servers.add');
         btn.onclick = openAddServerModal;
         container.appendChild(btn);
     }
     return btn;
+}
+
+function getCardStatusKey(server) {
+    if (!server.running) {
+        return 'stopped';
+    }
+    const phase = server.startup_phase || 'starting';
+    return phase === 'ready' ? 'ready' : 'starting';
+}
+
+function collapseServerCard(serverId, { disconnectStreams = true } = {}) {
+    const card = getServerCardEl(serverId);
+    if (!card) {
+        return;
+    }
+    card.classList.remove('is-expanded');
+    card.classList.add('is-collapsed');
+    const header = card.querySelector('.server-card-header');
+    const chevron = card.querySelector('.server-card-chevron');
+    if (header) {
+        header.setAttribute('aria-expanded', 'false');
+        header.setAttribute('aria-label', t('card.expand'));
+    }
+    if (chevron) {
+        chevron.setAttribute('aria-expanded', 'false');
+    }
+
+    if (disconnectStreams) {
+        const logDetails = document.getElementById(`server-log-details-${serverId}`);
+        if (logDetails?.open) {
+            logDetails.open = false;
+            serverLogOpen.delete(serverId);
+            disconnectServerLog(serverId);
+        }
+        const chatDetails = document.getElementById(`server-chat-details-${serverId}`);
+        if (chatDetails?.open) {
+            chatDetails.open = false;
+            serverChatOpen.delete(serverId);
+            disconnectServerChat(serverId);
+            stopChatPoll(serverId);
+        }
+    }
+}
+
+function expandServerCard(serverId) {
+    document.querySelectorAll('.server-card.is-expanded').forEach((other) => {
+        const otherId = other.dataset.serverId;
+        if (otherId && otherId !== serverId) {
+            collapseServerCard(otherId);
+        }
+    });
+
+    const card = getServerCardEl(serverId);
+    if (!card) {
+        return;
+    }
+    card.classList.remove('is-collapsed');
+    card.classList.add('is-expanded');
+    const header = card.querySelector('.server-card-header');
+    const chevron = card.querySelector('.server-card-chevron');
+    if (header) {
+        header.setAttribute('aria-expanded', 'true');
+        header.setAttribute('aria-label', t('card.collapse'));
+    }
+    if (chevron) {
+        chevron.setAttribute('aria-expanded', 'true');
+    }
+}
+
+function toggleServerCard(serverId) {
+    const card = getServerCardEl(serverId);
+    if (!card) {
+        return;
+    }
+    if (card.classList.contains('is-expanded')) {
+        collapseServerCard(serverId, { disconnectStreams: true });
+    } else {
+        expandServerCard(serverId);
+    }
+}
+
+function onServerCardHeaderClick(event, serverId) {
+    if (event.target.closest('.server-actions-compact, .btn, button, input, select, a, label, textarea')) {
+        return;
+    }
+    toggleServerCard(serverId);
+}
+
+function onServerCardHeaderKeydown(event, serverId) {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        toggleServerCard(serverId);
+    }
+}
+
+function updateServersSectionSummary(servers) {
+    const el = document.getElementById('servers-section-summary');
+    if (!el || !servers) {
+        return;
+    }
+    const online = servers.filter((s) => s.running).length;
+    el.textContent = t('servers.summary', { total: servers.length, online });
 }
 
 function removeServerCard(serverId) {
@@ -150,7 +265,7 @@ function updateServerLiveStats(server) {
     if (listEl) {
         const players = server.players || [];
         if (!server.running || players.length === 0) {
-            listEl.textContent = server.running ? 'Никого онлайн' : 'Сервер остановлен';
+            listEl.textContent = server.running ? t('card.nobodyOnline') : t('card.serverStopped');
         } else {
             listEl.innerHTML = '';
             players.forEach((p) => {
@@ -169,7 +284,9 @@ function updateServerCard(server) {
     }
     lastServerSnapshot[server.id] = { ...server };
 
-    const status = getServerStatusDisplay(server);
+    card.dataset.status = getCardStatusKey(server);
+
+    const status = getServerStatusDisplay(server, t);
     const indicator = card.querySelector('.status-indicator');
     if (indicator) {
         indicator.className = `status-indicator ${status.className}`;
@@ -179,26 +296,43 @@ function updateServerCard(server) {
         }
     }
 
-    const statusWrap = card.querySelector('.server-status');
-    if (statusWrap) {
-        let pidBadge = statusWrap.querySelector('.pid-badge');
+    const warnBadge = card.querySelector('.server-card-warning-badge');
+    if (warnBadge) {
+        warnBadge.textContent = status.warning || '';
+        warnBadge.title = status.warning || '';
+    }
+
+    const bodyWarn = card.querySelector('.startup-warning');
+    if (bodyWarn) {
+        if (status.warning) {
+            bodyWarn.textContent = status.warning;
+            bodyWarn.style.display = '';
+        } else {
+            bodyWarn.textContent = '';
+            bodyWarn.style.display = 'none';
+        }
+    }
+
+    const meta = card.querySelector('.server-card-meta');
+    if (meta) {
+        let pidBadge = meta.querySelector('.pid-badge');
         if (server.pid) {
             if (!pidBadge) {
                 pidBadge = document.createElement('span');
                 pidBadge.className = 'pid-badge';
-                statusWrap.appendChild(pidBadge);
+                meta.appendChild(pidBadge);
             }
             pidBadge.textContent = `PID: ${server.pid}`;
         } else if (pidBadge) {
             pidBadge.remove();
         }
 
-        let rptBadge = statusWrap.querySelector('.rpt-badge');
+        let rptBadge = meta.querySelector('.rpt-badge');
         if (server.current_rpt) {
             if (!rptBadge) {
                 rptBadge = document.createElement('span');
                 rptBadge.className = 'rpt-badge';
-                statusWrap.appendChild(rptBadge);
+                meta.appendChild(rptBadge);
             }
             rptBadge.textContent = server.current_rpt;
         } else if (rptBadge) {
@@ -206,23 +340,8 @@ function updateServerCard(server) {
         }
     }
 
-    const info = card.querySelector('.server-info');
-    if (info) {
-        let warningEl = info.querySelector('.startup-warning');
-        if (status.warning) {
-            if (!warningEl) {
-                warningEl = document.createElement('p');
-                warningEl.className = 'startup-warning';
-                info.appendChild(warningEl);
-            }
-            warningEl.textContent = status.warning;
-        } else if (warningEl) {
-            warningEl.remove();
-        }
-    }
-
-    const startBtn = card.querySelector('.server-buttons .btn-success');
-    const stopBtn = card.querySelector('.server-buttons .btn-danger');
+    const startBtn = card.querySelector('.btn-icon-start');
+    const stopBtn = card.querySelector('.btn-icon-stop');
     if (startBtn) {
         startBtn.disabled = !!server.running;
     }
@@ -232,7 +351,7 @@ function updateServerCard(server) {
 
     const nextEl = document.getElementById(`next-restart-${server.id}`);
     if (nextEl) {
-        nextEl.textContent = `Next: ${formatNextRestart(server.next_restart_at)}`;
+        nextEl.textContent = `${t('card.nextRestart')}: ${formatNextRestart(server.next_restart_at)}`;
     }
 
     const autoCb = card.querySelector('.restart-toggles .restart-toggle-row input[type="checkbox"]');
@@ -240,6 +359,7 @@ function updateServerCard(server) {
         autoCb.checked = !!server.auto_restart;
     }
 
+    applyStaticI18n(card);
     updateServerLiveStats(server);
 }
 
@@ -293,9 +413,10 @@ async function syncServers() {
                 p.className = 'servers-empty-msg';
                 p.style.textAlign = 'center';
                 p.style.color = 'var(--text-secondary)';
-                p.textContent = 'No servers configured';
+                p.textContent = t('servers.empty');
                 container.insertBefore(p, addBtn);
             }
+            updateServersSectionSummary([]);
             updateConnectionStatus(true);
             return;
         }
@@ -346,6 +467,7 @@ async function syncServers() {
             }
         });
 
+        updateServersSectionSummary(data.servers);
         updateConnectionStatus(true);
     } catch (error) {
         console.error('Failed to load servers:', error);
@@ -359,94 +481,120 @@ async function refreshServers() {
 
 function createServerCard(server) {
     const card = document.createElement('div');
-    card.className = 'server-card';
+    card.className = 'server-card is-collapsed';
     card.id = `server-card-${server.id}`;
     card.dataset.serverId = server.id;
+    card.dataset.status = getCardStatusKey(server);
     lastServerSnapshot[server.id] = { ...server };
 
-    const status = getServerStatusDisplay(server);
+    const status = getServerStatusDisplay(server, t);
+    const sid = server.id;
 
     card.innerHTML = `
-        <div class="server-card-top">
-            <div class="server-info">
-                <h3>${server.name}</h3>
-                <span class="port">:${server.port}</span>
-
-                <div class="server-status">
-                    <div class="status-indicator ${status.className}">
-                        <span class="dot"></span>
-                        <span>${status.text}</span>
-                    </div>
+        <div class="server-card-header" role="button" tabindex="0" aria-expanded="false"
+             aria-label="${t('card.expand')}"
+             onclick="onServerCardHeaderClick(event, '${sid}')"
+             onkeydown="onServerCardHeaderKeydown(event, '${sid}')">
+            <span class="server-card-chevron" aria-hidden="true">›</span>
+            <div class="server-card-summary">
+                <div class="server-card-title">
+                    <h3>${escapeHtml(server.name)}</h3>
+                    <span class="port">:${server.port}</span>
+                </div>
+                <div class="status-indicator ${status.className}">
+                    <span class="dot"></span>
+                    <span>${status.text}</span>
+                </div>
+                <span class="server-card-warning-badge" title="${escapeHtml(status.warning)}">${escapeHtml(status.warning)}</span>
+                <div class="server-card-metrics">
+                    <span class="metric-pill"><span data-i18n="card.fps">FPS</span>: <strong id="server-fps-${sid}">${formatServerFps(server)}</strong></span>
+                    <span class="metric-pill"><span data-i18n="card.players">Players</span>: <strong id="server-players-count-${sid}">${formatPlayersCount(server)}</strong></span>
+                </div>
+            </div>
+            <div class="server-actions-compact">
+                <button type="button" class="btn-icon btn-icon-start" data-i18n-title="card.start" title="Start"
+                    onclick="event.stopPropagation(); startServer('${sid}')" ${server.running ? 'disabled' : ''}>▶</button>
+                <button type="button" class="btn-icon btn-icon-stop" data-i18n-title="card.stop" title="Stop"
+                    onclick="event.stopPropagation(); stopServer('${sid}')" ${!server.running ? 'disabled' : ''}>⏹</button>
+                <button type="button" class="btn-icon btn-icon-restart" data-i18n-title="card.restart" title="Restart"
+                    onclick="event.stopPropagation(); restartServer('${sid}')">↻</button>
+                <button type="button" class="btn-icon btn-icon-remove" data-i18n-title="card.remove" title="Remove"
+                    onclick="event.stopPropagation(); removeServer('${sid}')">✕</button>
+            </div>
+        </div>
+        <div class="server-card-body">
+            <div class="server-card-body-inner">
+                <p class="startup-warning" style="${status.warning ? '' : 'display:none'}">${escapeHtml(status.warning)}</p>
+                <div class="server-card-meta server-status">
                     ${server.pid ? `<span class="pid-badge">PID: ${server.pid}</span>` : ''}
-                    ${server.current_rpt ? `<span class="rpt-badge">${server.current_rpt}</span>` : ''}
+                    ${server.current_rpt ? `<span class="rpt-badge">${escapeHtml(server.current_rpt)}</span>` : ''}
                 </div>
-                ${status.warning ? `<p class="startup-warning">${status.warning}</p>` : ''}
-                <div class="server-live-stats">
-                    <span class="live-stat">FPS: <strong id="server-fps-${server.id}">${formatServerFps(server)}</strong></span>
-                    <span class="live-stat">Игроки: <strong id="server-players-count-${server.id}">${formatPlayersCount(server)}</strong></span>
+
+                <div class="server-restart-panel">
+                    <div class="server-restart-header">
+                        <h4 data-i18n="card.restartSection">Restart</h4>
+                        <span class="next-restart" id="next-restart-${sid}">
+                            ${t('card.nextRestart')}: ${formatNextRestart(server.next_restart_at)}
+                        </span>
+                    </div>
+                    <div class="restart-toggles">
+                        <div class="restart-toggle-row">
+                            <label class="toggle-switch">
+                                <input type="checkbox" ${server.auto_restart ? 'checked' : ''} onchange="toggleAutoRestart('${sid}')">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span class="toggle-label" data-i18n="card.autoRestart">Auto restart</span>
+                            <span class="toggle-hint" data-i18n="card.autoRestartHint">Start server if process died</span>
+                        </div>
+                    </div>
+                    ${buildPlannedRestartHtml(server)}
                 </div>
-                <details class="server-players-details" id="server-players-details-${server.id}">
-                    <summary>Игроки онлайн</summary>
-                    <ul class="server-players-list" id="server-players-list-${server.id}"></ul>
+
+                <details class="server-players-details" id="server-players-details-${sid}">
+                    <summary data-i18n="card.playersOnline">Players online</summary>
+                    <ul class="server-players-list" id="server-players-list-${sid}"></ul>
+                </details>
+
+                <details class="server-log-details" id="server-log-details-${sid}" ontoggle="onServerLogToggle('${sid}')">
+                    <summary data-i18n="card.logRpt">Server log (RPT)</summary>
+                    <div class="server-log-toolbar">
+                        <label class="server-log-filter">
+                            <input type="checkbox" id="hide-weapon-${sid}" checked onchange="onServerLogFilterChange('${sid}')">
+                            <span data-i18n="card.hideWeapon">Hide WEAPON</span>
+                        </label>
+                        <span class="server-log-hint" data-i18n="card.readyHint">READY: [IdleMode] Entering IN - save processed</span>
+                    </div>
+                    <pre class="server-log-view" id="server-log-${sid}"></pre>
+                </details>
+
+                <details class="server-chat-details" id="server-chat-details-${sid}" ontoggle="onServerChatToggle('${sid}')">
+                    <summary data-i18n="card.gameChat">In-game chat</summary>
+                    <div class="server-chat-view" id="server-chat-${sid}"></div>
+                    <div class="server-chat-compose">
+                        <input type="text" class="server-chat-input" id="server-chat-input-${sid}" maxlength="235"
+                            data-i18n-placeholder="card.chatPlaceholder"
+                            placeholder="Message to all players…"
+                            onkeydown="if(event.key==='Enter')sendServerChat('${sid}')">
+                        <button type="button" class="btn btn-primary btn-small" data-i18n="card.chatSend"
+                            onclick="sendServerChat('${sid}')">Send</button>
+                    </div>
                 </details>
             </div>
-
-            <div class="server-actions">
-                <div class="server-buttons">
-                    <button class="btn btn-success btn-small" onclick="startServer('${server.id}')" ${server.running ? 'disabled' : ''}>▶ Start</button>
-                    <button class="btn btn-danger btn-small" onclick="stopServer('${server.id}')" ${!server.running ? 'disabled' : ''}>⏹ Stop</button>
-                    <button class="btn btn-warning btn-small" onclick="restartServer('${server.id}')">🔄 Restart</button>
-                </div>
-                <button class="btn btn-secondary btn-small" onclick="removeServer('${server.id}')">🗑️ Remove</button>
-            </div>
         </div>
-
-        <div class="server-restart-panel">
-            <div class="server-restart-header">
-                <h4>Restart</h4>
-                <span class="next-restart" id="next-restart-${server.id}">
-                    Next: ${formatNextRestart(server.next_restart_at)}
-                </span>
-            </div>
-
-            <div class="restart-toggles">
-                <div class="restart-toggle-row">
-                    <label class="toggle-switch">
-                        <input type="checkbox" ${server.auto_restart ? 'checked' : ''} onchange="toggleAutoRestart('${server.id}')">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <span class="toggle-label">Auto restart</span>
-                    <span class="toggle-hint">Поднять сервер, если процесс упал</span>
-                </div>
-            </div>
-
-            ${buildPlannedRestartHtml(server)}
-        </div>
-
-        <details class="server-log-details" id="server-log-details-${server.id}" ontoggle="onServerLogToggle('${server.id}')">
-            <summary>Server log (RPT)</summary>
-            <div class="server-log-toolbar">
-                <label class="server-log-filter">
-                    <input type="checkbox" id="hide-weapon-${server.id}" checked onchange="onServerLogFilterChange('${server.id}')">
-                    Скрыть WEAPON
-                </label>
-                <span class="server-log-hint">READY: [IdleMode] Entering IN - save processed</span>
-            </div>
-            <pre class="server-log-view" id="server-log-${server.id}"></pre>
-        </details>
-
-        <details class="server-chat-details" id="server-chat-details-${server.id}" ontoggle="onServerChatToggle('${server.id}')">
-            <summary>Игровой чат</summary>
-            <div class="server-chat-view" id="server-chat-${server.id}"></div>
-            <div class="server-chat-compose">
-                <input type="text" class="server-chat-input" id="server-chat-input-${server.id}" maxlength="235" placeholder="Сообщение всем игрокам…" onkeydown="if(event.key==='Enter')sendServerChat('${server.id}')">
-                <button type="button" class="btn btn-primary btn-small" onclick="sendServerChat('${server.id}')">Отправить</button>
-            </div>
-        </details>
     `;
 
+    applyStaticI18n(card);
     updateServerLiveStats(server);
     return card;
+}
+
+function escapeHtml(text) {
+    if (!text) {
+        return '';
+    }
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function shouldHideWeaponLineForServer(serverId, line) {
@@ -794,7 +942,7 @@ async function sendServerChat(serverId) {
             body: JSON.stringify({ message })
         });
         if (!response.ok) {
-            showToast(`Не удалось отправить: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.chatFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
         const data = await response.json();
@@ -806,9 +954,9 @@ async function sendServerChat(serverId) {
             text: message
         };
         appendServerChatLine(serverId, chatMsg);
-        showToast('Сообщение отправлено в игру', 'success', 3000);
+        showToast(t('toast.chatSent'), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -851,12 +999,13 @@ async function startServer(serverId) {
         });
 
         if (!response.ok) {
-            showToast(`Не удалось запустить: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.startFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
         clearServerLogView(serverId);
         serverLogOpen.add(serverId);
+        expandServerCard(serverId);
         await fetchServerAndUpdate(serverId);
         const details = document.getElementById(`server-log-details-${serverId}`);
         if (details) {
@@ -864,9 +1013,9 @@ async function startServer(serverId) {
             connectServerLog(serverId);
         }
         pollServerUntilReady(serverId);
-        showToast('Сервер запускается…', 'success', 3000);
+        showToast(t('toast.starting'), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -880,16 +1029,16 @@ async function stopServer(serverId) {
         });
 
         if (!response.ok) {
-            showToast(`Не удалось остановить: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.stopFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
         serverLogOpen.delete(serverId);
         disconnectServerLog(serverId);
         await fetchServerAndUpdate(serverId);
-        showToast('Сервер остановлен', 'success', 3000);
+        showToast(t('toast.stopped'), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -903,12 +1052,13 @@ async function restartServer(serverId) {
         });
 
         if (!response.ok) {
-            showToast(`Не удалось перезапустить: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.restartFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
         clearServerLogView(serverId);
         serverLogOpen.add(serverId);
+        expandServerCard(serverId);
         await fetchServerAndUpdate(serverId);
         const details = document.getElementById(`server-log-details-${serverId}`);
         if (details) {
@@ -916,9 +1066,9 @@ async function restartServer(serverId) {
             connectServerLog(serverId);
         }
         pollServerUntilReady(serverId);
-        showToast('Сервер перезапускается…', 'success', 3000);
+        showToast(t('toast.restarting'), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -942,13 +1092,13 @@ async function toggleAutoRestart(serverId) {
         });
 
         if (!updateResponse.ok) {
-            showToast(`Не удалось изменить auto restart: ${await parseApiError(updateResponse)}`, 'error');
+            showToast(t('toast.autoRestartFail', { detail: await parseApiError(updateResponse) }), 'error');
             return;
         }
 
         await fetchServerAndUpdate(serverId);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -962,15 +1112,15 @@ async function removeServer(serverId) {
         });
 
         if (!response.ok) {
-            showToast(`Не удалось удалить сервер: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.removeFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
         removeServerCard(serverId);
         await syncServers();
-        showToast(`Сервер «${serverId}» удалён из конфига`, 'success', 3000);
+        showToast(t('toast.removed', { id: serverId }), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -1029,15 +1179,15 @@ async function addServer(event) {
         });
 
         if (!response.ok) {
-            showToast(`Не удалось добавить сервер: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.addFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
         closeAddServerModal();
         await syncServers();
-        showToast('Сервер добавлен', 'success', 3000);
+        showToast(t('toast.added'), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -1055,7 +1205,7 @@ const INTERVAL_PRESETS = {
 };
 
 function formatNextRestart(isoString) {
-    if (!isoString) return 'Disabled';
+    if (!isoString) return t('card.nextDisabled');
     const date = new Date(isoString);
     if (Number.isNaN(date.getTime())) return '—';
     return date.toLocaleString(undefined, {
@@ -1084,36 +1234,36 @@ function buildPlannedRestartHtml(server) {
                     <input type="checkbox" id="pr-enabled-${serverId}" ${planned.enabled ? 'checked' : ''}>
                     <span class="toggle-slider"></span>
                 </label>
-                <span class="toggle-label">Planned restart</span>
-                <span class="toggle-hint">Рестарт по расписанию от 00:00</span>
+                <span class="toggle-label" data-i18n="card.plannedRestart">Planned restart</span>
+                <span class="toggle-hint" data-i18n="card.plannedRestartHint">Scheduled restart from 00:00</span>
             </div>
         <div class="restart-form-grid">
             <div class="restart-field" id="pr-preset-field-${serverId}">
-                <label for="pr-preset-${serverId}">Interval</label>
+                <label for="pr-preset-${serverId}" data-i18n="card.interval">Interval</label>
                 <select id="pr-preset-${serverId}" onchange="onRestartPresetChange('${serverId}')">
-                    <option value="2" ${preset === '2' ? 'selected' : ''}>Every 2 hours</option>
-                    <option value="3" ${preset === '3' ? 'selected' : ''}>Every 3 hours</option>
-                    <option value="4" ${preset === '4' ? 'selected' : ''}>Every 4 hours</option>
-                    <option value="6" ${preset === '6' ? 'selected' : ''}>Every 6 hours</option>
-                    <option value="custom" ${preset === 'custom' ? 'selected' : ''}>Custom (hours)</option>
-                    <option value="test" ${preset === 'test' ? 'selected' : ''}>Test mode (minutes)</option>
+                    <option value="2" ${preset === '2' ? 'selected' : ''} data-i18n="card.interval2h">Every 2 hours</option>
+                    <option value="3" ${preset === '3' ? 'selected' : ''} data-i18n="card.interval3h">Every 3 hours</option>
+                    <option value="4" ${preset === '4' ? 'selected' : ''} data-i18n="card.interval4h">Every 4 hours</option>
+                    <option value="6" ${preset === '6' ? 'selected' : ''} data-i18n="card.interval6h">Every 6 hours</option>
+                    <option value="custom" ${preset === 'custom' ? 'selected' : ''} data-i18n="card.intervalCustom">Custom (hours)</option>
+                    <option value="test" ${preset === 'test' ? 'selected' : ''} data-i18n="card.intervalTest">Test mode (minutes)</option>
                 </select>
             </div>
             <div class="restart-field" id="pr-hours-field-${serverId}" style="display:${preset === 'custom' && !planned.test_mode ? 'block' : 'none'}">
-                <label for="pr-hours-${serverId}">Custom hours</label>
+                <label for="pr-hours-${serverId}" data-i18n="card.customHours">Custom hours</label>
                 <input type="number" id="pr-hours-${serverId}" min="1" max="24" step="1" value="${customHours || 4}">
             </div>
             <div class="restart-field" id="pr-minutes-field-${serverId}" style="display:${preset === 'test' || planned.test_mode ? 'block' : 'none'}">
-                <label for="pr-minutes-${serverId}">Test interval (minutes)</label>
+                <label for="pr-minutes-${serverId}" data-i18n="card.testMinutes">Test interval (minutes)</label>
                 <input type="number" id="pr-minutes-${serverId}" min="10" max="59" step="1" value="${testMinutes}">
             </div>
         </div>
 
-        <p class="restart-hint">
+        <p class="restart-hint" data-i18n="card.plannedHint">
             Warnings at T-30, T-15, T-10 min. At T-5: say, pause 5 s, lock and kick. Requires RCON.
         </p>
         <div class="restart-actions">
-            <button class="btn btn-primary btn-small" onclick="savePlannedRestart('${serverId}')">Save planned restart</button>
+            <button type="button" class="btn btn-primary btn-small" data-i18n="card.savePlanned" onclick="savePlannedRestart('${serverId}')">Save planned restart</button>
         </div>
         </div>
     `;
@@ -1181,14 +1331,14 @@ async function savePlannedRestart(serverId) {
         });
 
         if (!response.ok) {
-            showToast(`Не удалось сохранить restart: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.plannedSaveFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
         await fetchServerAndUpdate(serverId);
-        showToast('Planned restart сохранён', 'success', 3000);
+        showToast(t('toast.plannedSaved'), 'success', 3000);
     } catch (error) {
-        showToast(`Ошибка: ${error.message}`, 'error');
+        showToast(t('toast.error', { detail: error.message }), 'error');
     }
 }
 
@@ -1288,10 +1438,10 @@ function updateConnectionStatus(connected) {
 
     if (connected) {
         statusDot.className = 'status-dot online';
-        statusText.textContent = 'Connected';
+        statusText.textContent = t('header.connected');
     } else {
         statusDot.className = 'status-dot offline';
-        statusText.textContent = 'Disconnected';
+        statusText.textContent = t('header.disconnected');
     }
 }
 
@@ -1309,7 +1459,7 @@ function getApiKey() {
 // ============================================================
 
 async function shutdownManager() {
-    showToast('Останавливаем менеджер и все серверы…', 'info', 4000);
+    showToast(t('toast.shutdown'), 'info', 4000);
 
     try {
         const response = await fetch(`${API_URL}/api/shutdown`, {
@@ -1320,12 +1470,12 @@ async function shutdownManager() {
         });
 
         if (!response.ok) {
-            showToast(`Shutdown failed: ${await parseApiError(response)}`, 'error');
+            showToast(t('toast.shutdownFail', { detail: await parseApiError(response) }), 'error');
             return;
         }
 
-        document.getElementById('connection-text').textContent = 'Shutting down...';
+        document.getElementById('connection-text').textContent = t('header.shuttingDown');
     } catch (error) {
-        document.getElementById('connection-text').textContent = 'Shutting down...';
+        document.getElementById('connection-text').textContent = t('header.shuttingDown');
     }
 }

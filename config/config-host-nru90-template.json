@@ -1,5 +1,5 @@
 {
-  "comment": "Шаблон под хост NRU90 / Windows Server 2022. Для первичной настройки этого хоста не используйте кнопку Add Server в Web UI: здесь у серверов разные exe и разные реальные порты/query/rcon.",
+  "comment": "Multi-instance template for one Windows host. If servers use different exe files or ports, edit this file manually instead of Add Server in the Web UI.",
 
   "steam": {
     "auth_mode": "session",
@@ -13,9 +13,9 @@
 
   "servers": [
     {
-      "id": "banov",
-      "name": "Future Land PVE - Banov",
-      "path": "C:\\DAYZSERVER\\BANOV",
+      "id": "server1",
+      "name": "My DayZ Server #1",
+      "path": "C:\\DAYZSERVER\\Server1",
       "exe": "DayZServer_x64.exe",
       "port": 2232,
       "query_port": 2905,
@@ -214,7 +214,7 @@
   },
 
   "auth": {
-    "api_key": "CHANGE_THIS_API_KEY",
+    "api_key": "change_this_api_key",
     "users": [
       {
         "username": "admin",

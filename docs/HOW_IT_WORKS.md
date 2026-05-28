@@ -1,50 +1,52 @@
-# Как устроен DayZ Manager
+﻿# How DayZ Manager works
 
-## Общая схема
+**Languages:** [English](HOW_IT_WORKS.md) · [Русский](ru/HOW_IT_WORKS.md)
+
+## Overview
 
 ```
-DayZManager.exe (или python src/main.py)
+DayZManager.exe (or python src/main.py)
 ├── FastAPI (web + REST + WebSocket)
 ├── ServerManager — start/stop/restart, PID, SERVER_LOCK
 ├── ServerRptWatcher — tail RPT, startup_phase, WS /ws/servers/{id}/logs
-├── Scheduler (asyncio loop, не APScheduler)
+├── Scheduler (asyncio loop, not APScheduler)
 │   ├── WatchDog
 │   ├── ModCheck
 │   ├── LogClean
 │   ├── PlannedRestart (planned_restart + legacy restart_schedule)
 │   └── CRON restart (restart_schedule)
 ├── ModSync — mod_list.txt → junction → Workshop ID
-├── SteamCMD — загрузка обновлений
+├── SteamCMD — download updates
 └── RCON — say, shutdown
 ```
 
 ## WatchDog
 
-Интервал: `settings.watchdog_interval` (по умолчанию 10 с).
+Interval: `settings.watchdog_interval` (default 10 s).
 
-Для каждого сервера с `auto_restart: true`:
+For each server with `auto_restart: true`:
 
-1. Проверить `SERVER_LOCK` — если есть, пропуск (идёт рестарт или mod-update).
-2. `is_running`: PID-файл + проверка процесса по имени/exe; при ручном запуске DayZ PID может восстановиться.
-3. Если процесс мёртв → `afterStop` → `prepare_server_for_start` → `beforeStart` → `start_server`.
-4. Если жив → обновить PID-файл.
+1. Check `SERVER_LOCK` — skip if present (restart or mod-update in progress).
+2. `is_running`: PID file + process exe path under `servers[].path` (and cwd fallback); not any `DayZServer` on the host. Manual start from the server folder may restore PID. With multiple servers on one machine, each instance is matched by its own exe path.
+3. If dead → `afterStop` → `prepare_server_for_start` → `beforeStart` → `start_server`.
+4. If alive → refresh PID file.
 
-Файл `.stopped` в папке сервера блокирует автозапуск, пока админ явно не нажмёт Start (или пока старт не снимет флаг при ошибке).
+File `.stopped` in server folder blocks auto-start until admin presses Start (or start clears flag on error).
 
 ## SERVER_LOCK
 
-Файл `SERVER_LOCK` в каталоге сервера (`servers[].path`).
+File `SERVER_LOCK` in server directory (`servers[].path`).
 
-| Событие | Lock |
-|---------|------|
-| Начало restart / mod-update / prepare | Создаётся |
-| Успешный start | Снимается после подтверждения running (`settings.start_confirm_timeout`, по умолчанию 90 с) |
-| Mod-update группы | Держится до всех `start_server` в группе |
-| WatchDog | Не трогает сервер с lock |
+| Event | Lock |
+|-------|------|
+| Start of restart / mod-update / prepare | Created |
+| Successful start | Released after running confirmed (`settings.start_confirm_timeout`, default 90 s) |
+| Mod-update group | Held until all `start_server` in group |
+| WatchDog | Skips server with lock |
 
-При зависшем lock после сбоя: удалить `SERVER_LOCK` вручную, когда убедились, что DayZ не запускается и нет активного SteamCMD.
+If lock stuck after failure: delete `SERVER_LOCK` manually when sure DayZ and SteamCMD are idle.
 
-## Запуск сервера
+## Starting a server
 
 ```
 POST /api/servers/{id}/start
@@ -56,124 +58,124 @@ POST /api/servers/{id}/start
   → release_lock
 ```
 
-При неудачном старте `.stopped` снимается, чтобы WatchDog мог повторить попытку.
+On failed start `.stopped` is cleared so WatchDog can retry.
 
-## Обновление модов
+## Mod updates
 
-**Источник активных модов:** `mod_list.txt` в папке сервера.
+**Active mods:** `mod_list.txt` in server folder.
 
-**Workshop ID:** цепочка junction  
+**Workshop ID:** junction chain  
 `server\@Mod` → `!Workshop\@Mod` → `steamapps\workshop\content\221100\<ID>`.  
-Только **цифровые** ID участвуют в автообновлении; иначе мод в launch, но без SteamCMD update.
+Only **numeric** IDs get auto-update; otherwise mod is in launch but not updated via SteamCMD.
 
-**ModCheck** (интервал `scheduler.mod_check_interval`):
+**ModCheck** (interval `scheduler.mod_check_interval`):
 
-1. Сравнить `time_updated` через Steam Web API (`data/mod_versions.json`).
-2. При обновлениях: RCON-предупреждение → shutdown (или force-stop) → SteamCMD download → junction/keys → перезапуск, если сервер был online.
+1. Compare `time_updated` via Steam Web API (`data/mod_versions.json`).
+2. On updates: RCON warning → shutdown (or force-stop) → SteamCMD download → junction/keys → restart if was online.
 
-**ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, копирование `.bikey` в `keys/`.
+**ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, copy `.bikey` to `keys/`.
 
-## Planned restart (рекомендуемый способ)
+## Planned restart (recommended)
 
-Настройка: `servers[].planned_restart` или блок **Restart** на карточке сервера в Web UI.
+Config: `servers[].planned_restart` or **Restart** block on server card.
 
-Планировщик проверяет слоты **каждые 60 с** (`_planned_restart_job`).
+Scheduler checks slots **every 60 s** (`_planned_restart_job`).
 
-| Поле | Описание |
-|------|----------|
-| `enabled` | Включить плановый рестарт |
-| `interval_minutes` | Интервал от 00:00 (240 = каждые 4 ч) |
-| `test_mode` | Короткий интервал 10–59 мин для тестов |
+| Field | Description |
+|-------|-------------|
+| `enabled` | Enable planned restart |
+| `interval_minutes` | Interval from 00:00 (240 = every 4 h) |
+| `test_mode` | Short interval 10–59 min for tests |
 
-**Слоты:** от полуночи — 00:00, +interval, +interval …  
-**Next restart:** API и UI показывают `next_restart_at` (ISO datetime).
+**Slots:** from midnight — 00:00, +interval, +interval …  
+**Next restart:** API and UI show `next_restart_at` (ISO datetime).
 
-**Этапы** (если этап меньше интервала — пропускается, напр. при 15 мин нет T-30/T-15):
+**Stages** (skipped if smaller than interval, e.g. no T-30/T-15 at 15 min):
 
-| Этап | Действие |
-|------|----------|
-| T-30, T-15, T-10 | RCON say RU, затем EN |
-| T-5 | say RU+EN → пауза 5 с → `#lock` → kick всех онлайн |
+| Stage | Action |
+|-------|--------|
+| T-30, T-15, T-10 | RCON say RU, then EN |
+| T-5 | say RU+EN → pause 5 s → `#lock` → kick all online |
 | T-0 | `execute_planned_restart` (stop → prepare → start) |
 
-При `SERVER_LOCK` или недоступном RCON этап пропускается с записью в лог.  
-**Auto restart** (WatchDog) и **Planned restart** работают независимо.
+Skipped on `SERVER_LOCK` or unavailable RCON (logged).  
+**Auto restart** (WatchDog) and **Planned restart** are independent.
 
-## CRON-рестарты (legacy)
+## CRON restarts (legacy)
 
-`scheduler.restart_schedule` — проверка **каждые 60 с**.
+`scheduler.restart_schedule` — checked **every 60 s**.
 
 ```json
 {
-  "server_id": "banov",
+  "server_id": "server1",
   "time": "04:00",
   "days": ["mon", "tue", "wed", "thu", "fri"]
 }
 ```
 
-- `time` — локальное `HH:MM`.
-- `days` — `mon`…`sun` или `0`…`6` (`0` = понедельник). Пусто = каждый день.
-- Альтернатива: поле `cron` — 5 полей `минута час * * *`.
+- `time` — local `HH:MM`.
+- `days` — `mon`…`sun` or `0`…`6` (`0` = Monday). Empty = every day.
+- Alternative: `cron` field — 5 fields `minute hour * * *`.
 
-Перед рестартом: RCON `say` за `settings.restart_notify_minutes` (по умолчанию 5), затем `restart_server`.  
-Для новых установок предпочтительнее **planned_restart** — см. выше.
+Before restart: RCON `say` at `settings.restart_notify_minutes` (default 5), then `restart_server`.  
+For new installs prefer **planned_restart**.
 
-## RPT tail и READY
+## RPT tail and READY
 
-Модуль `ServerRptWatcher` — один фоновый поток на сервер, читает `{path}/{profiles}/DayZServer_x64_*.RPT`.
+Module `ServerRptWatcher` — one background thread per server, reads `{path}/{profiles}/DayZServer_x64_*.RPT`.
 
-| Фаза | Условие |
-|------|---------|
-| `stopped` | Процесса нет |
-| `starting` | PID есть, маркер READY ещё не встречен в сессии |
-| `ready` | В RPT появилась `startup_ready_marker` (по умолчанию `[IdleMode] Entering IN - save processed`) |
+| Phase | Condition |
+|-------|-----------|
+| `stopped` | No process |
+| `starting` | PID exists, READY marker not seen in session |
+| `ready` | `startup_ready_marker` found in RPT (default `[IdleMode] Entering IN - save processed`) |
 
-- `running` (PID) и `ready` — разные вещи: PID появляется за секунды, READY — через ~30–60 с на Banov.
-- Повторный `Entering IN` после `Leaving OUT` не сбрасывает фазу.
-- **Lazy attach:** DayZ уже запущен (ручной старт / рестарт менеджера) — подхват последнего RPT при `GET /api/servers`.
-- Консоль: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); старт только через менеджер.
-- Live stats: FPS из RPT tail; игроки — RCON `players` каждые ~5 с; чат — Expansion ExpLog tail.
+- `running` (PID) and `ready` differ: PID in seconds, READY often ~30–60 s on a typical host.
+- Repeated `Entering IN` after `Leaving OUT` does not reset phase.
+- **Lazy attach:** DayZ already running — attach latest RPT on `GET /api/servers`.
+- Console: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); start only via manager.
+- Live stats: FPS from RPT; players — RCON `players` every ~5 s; chat — Expansion ExpLog tail.
 
 ## Web UI
 
-`http://127.0.0.1:8000` — ввести API key в шапке.
+`http://127.0.0.1:8000` — enter API key in header.
 
-| Элемент | Назначение |
-|---------|------------|
-| Карточка сервера | Start / Stop / Restart; статус STOPPED / STARTING / READY |
-| **Server log (RPT)** | Live tail по WS, append строк; `syncServers` не пересоздаёт карточку |
-| Блок **Restart** | Auto restart, Planned restart, интервал, Save, Next restart |
-| Add Server | ID, имя, path, port, RCON — без настроек рестарта |
-| Live Logs | Логи **менеджера** (не DayZ) |
+| Element | Purpose |
+|---------|---------|
+| Server card | Start / Stop / Restart; STOPPED / STARTING / READY |
+| **Server log (RPT)** | Live tail via WS, append lines; `syncServers` does not recreate card |
+| **Restart** block | Auto restart, Planned restart, interval, Save, Next restart |
+| Add Server | ID, name, path, port, RCON — no restart settings |
+| Live Logs | **Manager** logs (not DayZ) |
 
-После обновления UI: **Ctrl+F5** (кэш `app.js`, сейчас `?v=6`).
+After UI update: **Ctrl+F5** (cache `app.js`).
 
-Карточки серверов синхронизируются через `syncServers()`: новые — `createServerCard`, существующие — `updateServerCard` (статус, PID, warning). Блок лога и `<pre>` при poll и WS-сообщениях `s`/`r` не пересоздаются.
+Cards sync via `syncServers()`: new — `createServerCard`, existing — `updateServerCard`. Log `<pre>` is not recreated on poll/WS.
 
-**Автотесты:** `python -m pytest tests/ -v` из каталога `dayz_manager` — см. [TESTING.md](TESTING.md).
+**Tests:** `python -m pytest tests/ -v` — see [TESTING.md](TESTING.md).
 
-## Хуки
+## Hooks
 
-| Хук | Когда |
-|-----|--------|
-| `beforeStart` | Перед spawn процесса |
-| `afterStop` | После остановки |
+| Hook | When |
+|------|------|
+| `beforeStart` | Before process spawn |
+| `afterStop` | After stop |
 
-В EXE базовый каталог для путей хуков — рядом с `DayZManager.exe` (`sys.executable`).
+In EXE, hook base path is next to `DayZManager.exe` (`sys.executable`).
 
-Пример: `hooks/before_start.py` → функция `run(server_config)`.
+Example: `hooks/before_start.py` → `run(server_config)`.
 
 ## Discord
 
-Модуль `src/notifications/discord_bot.py` есть, в `main.py` **не подключён** — автоматических уведомлений нет.
+Module `src/notifications/discord_bot.py` exists but is **not wired** in `main.py` — no automatic notifications.
 
-## Данные на диске
+## On-disk data
 
-| Путь | Назначение |
-|------|------------|
-| `data/mod_versions.json` | Кэш версий Workshop |
-| `data/mod_hashes.json` | Legacy/вспомогательный кэш |
-| `logs/manager.log` | Лог менеджера |
-| `{server}/server.pid` | PID процесса |
-| `{server}/.stopped` | Запрет автозапуска |
-| `{server}/SERVER_LOCK` | Блокировка гонок |
+| Path | Purpose |
+|------|---------|
+| `data/mod_versions.json` | Workshop version cache |
+| `data/mod_hashes.json` | Legacy/auxiliary cache |
+| `logs/manager.log` | Manager log |
+| `{server}/server.pid` | Process PID |
+| `{server}/.stopped` | Block auto-start |
+| `{server}/SERVER_LOCK` | Race lock |

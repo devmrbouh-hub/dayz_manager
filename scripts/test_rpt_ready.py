@@ -11,9 +11,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 from src.core.config import Config  # noqa: E402
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _resolve_server import resolve_server_id  # noqa: E402
 
 API_BASE = os.environ.get("DAYZ_MANAGER_API", "http://127.0.0.1:8000")
-SERVER_ID = os.environ.get("DAYZ_MANAGER_SERVER", "banov")
 
 
 def api_get(path: str, api_key: str = None):
@@ -31,12 +32,16 @@ def main():
         config = Config()
         config.load()
         api_key = config.get("auth.api_key")
+        server_id = resolve_server_id(config)
+    except SystemExit as e:
+        print(e)
+        return 1
     except Exception as e:
         print(f"SKIP: config not loadable: {e}")
         return 0
 
     try:
-        data = api_get(f"/api/servers/{SERVER_ID}", api_key)
+        data = api_get(f"/api/servers/{server_id}", api_key)
     except urllib.error.URLError as e:
         print(f"SKIP: manager not reachable at {API_BASE}: {e}")
         return 0
@@ -48,11 +53,11 @@ def main():
         print(f"FAIL: missing fields: {missing}")
         return 1
 
-    print(f"OK  GET /api/servers/{SERVER_ID}")
+    print(f"OK  GET /api/servers/{server_id}")
     print(f"    running={server.get('running')} phase={server.get('startup_phase')}")
     print(f"    rpt={server.get('current_rpt')} warning={server.get('startup_warning')}")
 
-    tail = api_get(f"/api/servers/{SERVER_ID}/logs/tail?lines=5", api_key)
+    tail = api_get(f"/api/servers/{server_id}/logs/tail?lines=5", api_key)
     if "lines" not in tail:
         print("FAIL: logs/tail missing 'lines'")
         return 1

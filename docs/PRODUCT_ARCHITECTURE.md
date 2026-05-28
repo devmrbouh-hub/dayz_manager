@@ -1,29 +1,31 @@
-# Продуктовая архитектура: масштабирование и SaaS
+﻿# Product architecture: scaling and SaaS
 
-Документ фиксирует целевую архитектуру, если DayZ Manager развивается от «панели на хосте» до **облачного продукта** с доступом из интернета, игровыми фичами и перепродажей другим владельцам серверов.
+**Languages:** [English](PRODUCT_ARCHITECTURE.md) · [Русский](ru/PRODUCT_ARCHITECTURE.md)
 
-**Текущий код** (`dayz_manager`) — это слой **Host Agent** (фаза 1). Облако и Game Bridge — отдельные контуры, не расширение одного EXE.
+Target architecture if DayZ Manager grows from a **host panel** to a **cloud product** with internet access, game features, and resale to other server owners.
 
-Связанные документы:
+**Current code** (`dayz_manager`) is the **Host Agent** layer (phase 1). Cloud and Game Bridge are separate systems, not extensions of one EXE.
 
-- [HOW_IT_WORKS.md](HOW_IT_WORKS.md) — как устроен agent сегодня
-- [ROADMAP.md](ROADMAP.md) — ближайшие фичи UI на хосте (фаза 2)
-- Донаты/магазин (бизнес-логика Banov): `../../docs/DONATE_*.md` в корне репозитория
+Related docs:
 
----
-
-## Куда растёт продукт
-
-| Зона | Примеры | Где жить |
-|------|---------|----------|
-| **A. Управление хостом** | Старт/стоп DayZ, моды, рестарты, логи менеджера | **Host Agent** (текущий `dayz_manager`) |
-| **B. Игровая логика** | Выдача предметов, позиции на карте, онлайн | **Game Bridge** (мод / Expansion / COT / свой скрипт) |
-| **C. Облако** | Логин админов, мультисервер, карта, статистика, биллинг | **Cloud API + Web App** |
-| **D. Интеграции** | Оплата, сайт, Discord | **Shop / Payment service** |
+- [HOW_IT_WORKS.md](HOW_IT_WORKS.md) — how the agent works today
+- [ROADMAP.md](ROADMAP.md) — near-term host UI features (phase 2)
+- Donations/shop (tenant business rules): outside this repository — implement in Cloud, not in EXE
 
 ---
 
-## Целевая схема (три уровня)
+## Product zones
+
+| Zone | Examples | Where it lives |
+|------|----------|----------------|
+| **A. Host management** | Start/stop DayZ, mods, restarts, manager logs | **Host Agent** (current `dayz_manager`) |
+| **B. Game logic** | Item delivery, map positions, online state | **Game Bridge** (mod / Expansion / COT / custom) |
+| **C. Cloud** | Admin login, multi-server, map, stats, billing | **Cloud API + Web App** |
+| **D. Integrations** | Payments, website, Discord | **Shop / Payment service** |
+
+---
+
+## Target topology (three tiers)
 
 ```mermaid
 flowchart TB
@@ -57,141 +59,141 @@ flowchart TB
 
 ---
 
-## Почему не расширять один EXE до «всего в интернете»
+## Why not grow one EXE into “everything on the internet”
 
-1. **Доступ из интернета** — нельзя публиковать `0.0.0.0:8000` с одним `X-API-Key`. Нужны HTTPS, OAuth/2FA, RBAC, rate limit, audit, изоляция арендаторов (tenant).
-2. **Карта и игроки в реальном времени** — RCON и логов недостаточно. Нужен **Game Bridge**, который шлёт координаты и события.
-3. **Магазин и автовыдача** — очередь заказов, идемпотентность, подтверждение выдачи. Иначе дубли предметов и споры.
-4. **Продажа другим владельцам** — multi-tenant SaaS: аккаунт, N серверов, тарифы, биллинг. Один `config.json` на диске не масштабируется.
+1. **Internet exposure** — do not publish `0.0.0.0:8000` with a single `X-API-Key`. Need HTTPS, OAuth/2FA, RBAC, rate limits, audit, tenant isolation.
+2. **Live map and players** — RCON and logs are not enough. Need **Game Bridge** pushing coordinates and events.
+3. **Shop and auto-delivery** — order queue, idempotency, delivery confirmation. Otherwise duplicate items and disputes.
+4. **Selling to other owners** — multi-tenant SaaS: accounts, N servers, plans, billing. One on-disk `config.json` does not scale.
 
-Текущий стек (Python monolith + PyInstaller) **оставить для Agent**; публичную админку и магазин — в Cloud.
-
----
-
-## Компоненты
-
-### 1. Host Agent (эволюция `dayz_manager`)
-
-- Windows, рядом с dedicated server.
-- Процессы, моды, локальный RCON, выполнение **jobs из облака** (выдача, кик, рестарт).
-- Связь с облаком: **исходящий** WebSocket или mTLS (agent подключается сам — не открывать порты на хосте клиента).
-- Не публиковать панель в интернет; не хранить секреты платёжки в открытом виде.
-
-### 2. Game Bridge (новый слой)
-
-Зависит от модпака:
-
-- Expansion / Community Online Tools / VPP — часть функций через их API/RCON.
-- **Свой server mod** — полный контроль (позиции, машины, callback при выдаче).
-
-Bridge принимает команды от Agent и пушит события: `player_position`, `vehicle_position`, `connect`/`disconnect`, `death`, и т.д.
-
-### 3. Cloud (ядро продукта для продажи)
-
-| Компонент | Пример стека | Назначение |
-|-----------|--------------|------------|
-| API | Go / .NET / FastAPI (отдельный сервис) | tenants, auth, jobs, billing |
-| DB | PostgreSQL | пользователи, серверы, заказы, роли |
-| Очередь | Redis / NATS | выдача предметов, ретраи |
-| Статистика | TimescaleDB / ClickHouse | киллы, онлайн, экономика |
-| Карта (live) | Redis + WebSocket fanout | последние позиции |
-| Web | React/Next или Vue | админка + публичная статистика |
-| Файлы | S3-совместимое | бэкапы, экспорт |
-
-Публичный сайт для игроков и админка могут быть одним фронтом с разными ролями.
-
-### 4. Магазин
-
-Типовой поток:
-
-1. Игрок платит на сайте (Stripe, ЮKassa, …).
-2. Webhook → Cloud: `order_paid` (подпись, idempotency key).
-3. Cloud создаёт `delivery_job`: `server_id` + `steam_id` + `product_sku`.
-4. Agent/Bridge на хосте выполняет выдачу.
-5. Callback `delivered` / `failed` → статус на сайте.
-
-Бизнес-правила донатов для Banov: см. `docs/DONATE_*.md` в корне репозитория — логику встраивать в Cloud, не в EXE.
+Keep the current stack (Python monolith + PyInstaller) for **Agent**; public admin and shop live in **Cloud**.
 
 ---
 
-## Безопасность (минимум для продажи)
+## Components
 
-- Cloud только по **HTTPS** (Let's Encrypt / Cloudflare).
-- **Tenant isolation**: `owner_id` на всех сущностях; token agent привязан к tenant.
-- **RBAC**: owner / admin / moderator / viewer; отдельные права на выдачу, карту, финансы.
-- **2FA** для владельцев.
-- Agent: **без входящих портов** с интернета; rotate token.
-- **Audit log**: кто выдал предмет, кто сделал рестарт.
-- Rate limits и защита webhook магазина.
+### 1. Host Agent (evolution of `dayz_manager`)
 
-Текущие `X-API-Key` + `CORS *` для публичного SaaS **не подходят**.
+- Windows, next to dedicated server.
+- Processes, mods, local RCON, **jobs from cloud** (deliver, kick, restart).
+- Cloud link: **outbound** WebSocket or mTLS (agent connects — no inbound ports on customer host).
+- Do not expose panel to the internet; do not store payment secrets in plain text.
 
----
+### 2. Game Bridge (new layer)
 
-## Модели продажи
+Depends on mod pack:
 
-| Модель | Что продаётся | Инфра |
-|--------|---------------|--------|
-| **Self-hosted license** | Agent + Bridge + опционально Cloud у клиента | Лицензия, обновления |
-| **SaaS** | Подписка за сервер/слот | Ваш Cloud; у клиента только Agent+Bridge |
-| **Hybrid** | SaaS-панель + agent на железе клиента | Частый вариант для DayZ |
+- Expansion / Community Online Tools / VPP — partial features via their API/RCON.
+- **Custom server mod** — full control (positions, vehicles, delivery callbacks).
 
-Для SaaS: онбординг (token → agent → сервер в панели), health dashboard, версии API agent/cloud.
+Bridge accepts commands from Agent and pushes events: `player_position`, `vehicle_position`, `connect`/`disconnect`, `death`, etc.
 
----
+### 3. Cloud (product core for resale)
 
-## Оценка текущего стека (кратко)
+| Component | Example stack | Purpose |
+|-----------|---------------|---------|
+| API | Go / .NET / FastAPI (separate service) | tenants, auth, jobs, billing |
+| DB | PostgreSQL | users, servers, orders, roles |
+| Queue | Redis / NATS | item delivery, retries |
+| Stats | TimescaleDB / ClickHouse | kills, online, economy |
+| Live map | Redis + WebSocket fanout | latest positions |
+| Web | React/Next or Vue | admin + public stats |
+| Files | S3-compatible | backups, export |
 
-**Удачно для Agent:** Python, FastAPI, asyncio scheduler, subprocess/psutil, static web, PyInstaller, модульное разделение (`server_mgr`, `mod_sync`, `scheduler`).
+Public player site and admin can be one frontend with different roles.
 
-**Долг перед масштабом:**
+### 4. Shop
 
-- Синхронные `prepare_server_for_start` / `start_server` в async routes блокируют event loop — вынести в `run_in_executor`.
-- PyInstaller тянет лишние модули из глобального Python — отдельный venv и жёсткий `.spec`.
-- Нет multi-tenant, нет исходящего канала в Cloud.
+Typical flow:
 
-**Менять язык целиком не обязательно** — эволюция Agent + новый Cloud + Bridge.
+1. Player pays on website (Stripe, etc.).
+2. Webhook → Cloud: `order_paid` (signature, idempotency key).
+3. Cloud creates `delivery_job`: `server_id` + `steam_id` + `product_sku`.
+4. Agent/Bridge on host executes delivery.
+5. Callback `delivered` / `failed` → status on site.
 
----
-
-## Практичный roadmap
-
-| Фаза | Содержание |
-|------|------------|
-| **1 (сделано)** | Стабильный Host Agent на хосте |
-| **1.5** | Executor в API; заглушка исходящего канала в Cloud; remote jobs |
-| **2** | Cloud MVP: auth, привязка agent, базовая выдача через RCON/известный mod |
-| **3** | Карта (Bridge + WebSocket), статистика (логи → mod events) |
-| **4** | Магазин, биллинг, white-label |
-
-Ветка `feature/admin-ui` в этом репо — **локальная панель на хосте**. Публичная админка — отдельный frontend на Cloud API.
+Shop/donation business rules live in **Cloud**, not in EXE.
 
 ---
 
-## Рекомендации по стеку по слоям
+## Security (minimum for resale)
 
-| Слой | Рекомендация |
-|------|----------------|
-| Host Agent | **Python** — оставить |
-| Game Bridge | Enforce / mod + локальный relay при необходимости |
-| Cloud API | Go / .NET для нагрузки; **FastAPI** для быстрого MVP одной командой |
-| Frontend | **React/Next** — карта (Leaflet/Mapbox), дашборды, i18n |
-| Realtime | WebSocket через **Cloud**, не через agent в интернет |
+- Cloud **HTTPS only** (Let's Encrypt / Cloudflare).
+- **Tenant isolation**: `owner_id` on all entities; agent token bound to tenant.
+- **RBAC**: owner / admin / moderator / viewer; separate rights for delivery, map, billing.
+- **2FA** for owners.
+- Agent: **no inbound ports** from internet; rotate tokens.
+- **Audit log**: who delivered item, who restarted server.
+- Rate limits and shop webhook protection.
 
----
-
-## Риски DayZ-специфики
-
-- Разные модпаки у клиентов — нужны **адаптеры** (`ExpansionAdapter`, `COTAdapter`, `VanillaRCONAdapter`) или «официальный» mod для SaaS.
-- Steam/Workshop — только на agent; пароли не в облако.
-- Продажа продукта: лицензия, SLA, GDPR при EU-игроках, политика хранения Steam ID.
+Current `X-API-Key` + `CORS *` are **not suitable** for public SaaS.
 
 ---
 
-## Итог
+## Sales models
 
-**Текущая архитектура оптимальна для управления хостом.** Для интернета, карты, статистики, магазина и перепродажи нужна система **Cloud + Host Agent + Game Bridge**. Monolith EXE с UI на `:8000` в интернет не масштабируется и небезопасен как единственная точка продукта.
+| Model | What is sold | Infra |
+|-------|--------------|--------|
+| **Self-hosted license** | Agent + Bridge + optional Cloud at customer | License, updates |
+| **SaaS** | Subscription per server/slot | Your Cloud; customer runs Agent+Bridge only |
+| **Hybrid** | SaaS panel + agent on customer hardware | Common for DayZ |
+
+For SaaS: onboarding (token → agent → server in panel), health dashboard, agent/cloud API versions.
 
 ---
 
-*Документ создан: 2026-05-23. Контекст: обсуждение масштабирования после merge `feature/stability` → `master`.*
+## Current stack assessment (brief)
+
+**Good for Agent:** Python, FastAPI, asyncio scheduler, subprocess/psutil, static web, PyInstaller, modules (`server_mgr`, `mod_sync`, `scheduler`).
+
+**Debt before scale:**
+
+- Sync `prepare_server_for_start` / `start_server` in async routes block event loop — move to `run_in_executor`.
+- PyInstaller may bundle extra modules — dedicated venv and strict `.spec`.
+- No multi-tenant, no outbound Cloud channel.
+
+**Full rewrite not required** — evolve Agent + new Cloud + Bridge.
+
+---
+
+## Practical roadmap
+
+| Phase | Content |
+|-------|---------|
+| **1 (done)** | Stable Host Agent on host |
+| **1.5** | Executor in API; Cloud outbound stub; remote jobs |
+| **2** | Cloud MVP: auth, agent pairing, basic delivery via RCON/known mod |
+| **3** | Map (Bridge + WebSocket), stats (logs → mod events) |
+| **4** | Shop, billing, white-label |
+
+`feature/admin-ui` in this repo is **local host panel**. Public admin is a separate frontend on Cloud API.
+
+---
+
+## Stack recommendations by layer
+
+| Layer | Recommendation |
+|-------|----------------|
+| Host Agent | **Python** — keep |
+| Game Bridge | Enforce / mod + local relay if needed |
+| Cloud API | Go / .NET for load; **FastAPI** for fast MVP |
+| Frontend | **React/Next** — map (Leaflet/Mapbox), dashboards, i18n |
+| Realtime | WebSocket via **Cloud**, not agent exposed to internet |
+
+---
+
+## DayZ-specific risks
+
+- Different mod packs per customer — **adapters** (`ExpansionAdapter`, `COTAdapter`, `VanillaRCONAdapter`) or official SaaS mod.
+- Steam/Workshop — agent only; passwords not in cloud.
+- Product sale: license, SLA, GDPR for EU players, Steam ID retention policy.
+
+---
+
+## Summary
+
+**Current architecture is optimal for host management.** For internet, map, stats, shop, and resale you need **Cloud + Host Agent + Game Bridge**. A monolith EXE with UI on `:8000` on the public internet does not scale and is unsafe as the sole product surface.
+
+---
+
+*Document created: 2026-05-23. Context: scaling discussion after merge `feature/stability` → `master`.*

@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
-"""Локальные проверки стабилизации на сервере banov (d:\\Banov)."""
+"""Local stability checks for one server from config (manager optional for API block)."""
 
 import json
 import os
 import sys
-import time
 import urllib.request
 import urllib.error
 
@@ -15,7 +14,8 @@ from src.core.config import Config
 from src.core.server_mgr import ServerManager
 from src.core.mod_sync import ModSync
 from src.utils.logger import LoggerManager
-
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _resolve_server import resolve_server_id
 
 API_KEY = None
 
@@ -39,21 +39,17 @@ def main():
     config = Config()
     config.load()
     API_KEY = config.get("auth.api_key")
-
-    server = config.get_server("banov")
-    if not server:
-        print("FAIL: server banov not in config")
-        return 1
+    server_id = resolve_server_id(config)
+    server = config.get_server(server_id)
 
     logger = LoggerManager()
     mgr = ServerManager(config, logger)
     mod_sync = ModSync(config, logger)
 
-    print("=== Banov stability checks ===\n")
+    print(f"=== Stability checks (server_id={server_id}) ===\n")
     passed = 0
     failed = 0
 
-    # Lock helpers
     if mgr.acquire_lock(server):
         print("OK  acquire_lock")
         passed += 1
@@ -68,7 +64,6 @@ def main():
         print("WARN acquire_lock failed (SERVER_LOCK may already exist)")
         failed += 1
 
-    # Port warn (should not raise)
     try:
         mgr._validate_config_ports(server)
         print("OK  _validate_config_ports")
@@ -77,7 +72,6 @@ def main():
         print(f"FAIL _validate_config_ports: {e}")
         failed += 1
 
-    # Mod IDs
     effective = mod_sync.get_effective_mods(server)
     bad = [m for m in effective if m.get("update_enabled") and not str(m.get("id", "")).isdigit()]
     if not bad:
@@ -92,15 +86,14 @@ def main():
     stopped = (mgr._server_dir(server) / ".stopped").exists()
     print(f"INFO .stopped present: {stopped}")
 
-    # API tests (manager must be running)
     print("\n--- API (manager on :8000) ---")
     try:
         with urllib.request.urlopen("http://127.0.0.1:8000/api/servers", timeout=5) as resp:
-            data = json.loads(resp.read().decode())
+            json.loads(resp.read().decode())
         print("OK  GET /api/servers")
         passed += 1
 
-        rcon = api_request("POST", "/api/servers/banov/rcon/test")
+        rcon = api_request("POST", f"/api/servers/{server_id}/rcon/test")
         ok = rcon.get("rcon", {}).get("success")
         print(f"{'OK' if ok else 'WARN'} POST rcon/test success={ok} msg={rcon.get('rcon', {}).get('message', '')[:80]}")
         if ok:
@@ -117,12 +110,16 @@ def main():
         else:
             print("FAIL mod_check_interval not updated in GET")
             failed += 1
-        api_request("PUT", "/api/settings", {"mod_check_interval": settings_before["settings"].get("mod_check_interval", 600)})
+        api_request(
+            "PUT",
+            "/api/settings",
+            {"mod_check_interval": settings_before["settings"].get("mod_check_interval", 600)},
+        )
         print("OK  restored mod_check_interval")
 
         try:
             mods = api_request("POST", "/api/mods/check")
-            updates = mods.get("updates", {}).get("banov", [])
+            updates = mods.get("updates", {}).get(server_id, [])
             print(f"OK  POST /api/mods/check updates={len(updates)}")
             passed += 1
         except TimeoutError:
@@ -130,7 +127,7 @@ def main():
 
     except urllib.error.URLError as e:
         print(f"SKIP API tests (start manager first): {e}")
-        print("  Run: cd dayz_manager && python src/main.py")
+        print("  Run: python src/main.py")
 
     print(f"\n=== Done: passed={passed} failed={failed} ===")
     return 0 if failed == 0 else 1

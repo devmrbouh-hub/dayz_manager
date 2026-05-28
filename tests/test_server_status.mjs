@@ -39,7 +39,8 @@ describe('getServerStatusDisplay', () => {
             startup_phase: 'starting',
             startup_warning: 'rpt_not_found',
         });
-        assert.ok(s.warning.includes('profiles'));
+        assert.ok(s.warning.length > 0);
+        assert.ok(s.warning.includes('RPT'));
     });
 
     it('shows ready_timeout warning', () => {
@@ -49,6 +50,12 @@ describe('getServerStatusDisplay', () => {
             startup_warning: 'ready_timeout',
         });
         assert.ok(s.warning.includes('READY'));
+    });
+
+    it('uses translate callback when provided', () => {
+        const tr = (key) => (key === 'status.ready' ? 'ГОТОВ' : key);
+        const s = getServerStatusDisplay({ running: true, startup_phase: 'ready' }, tr);
+        assert.equal(s.text, 'ГОТОВ');
     });
 });
 

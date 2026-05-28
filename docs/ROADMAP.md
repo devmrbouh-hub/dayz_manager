@@ -1,68 +1,70 @@
-# Roadmap — фаза 2 (admin UI)
+﻿# Roadmap — phase 2 (admin UI)
 
-Фаза 1 (стабилизация) и фаза 2 (admin UI) влиты в **`main`** — см. [CHANGELOG.md](CHANGELOG.md).  
-Planned restart, live stats, чат — проверено на Banov (2026-05).
+**Languages:** [English](ROADMAP.md) · [Русский](ru/ROADMAP.md)
 
-## Сделано
+Phase 1 (stabilization) and phase 2 (admin UI) are merged into **`main`** — see [CHANGELOG.md](CHANGELOG.md).  
+Planned restart, live stats, chat — verified on reference host (2026-05).
 
-- **Planned restart** — интервал от 00:00, этапы T-30/15/10/5/0, RU+EN say, lock + kick на T-5
-- **Web UI** — блок Restart на карточке сервера (auto + planned, Save, Next restart)
-- **API** — `planned_restart`, `next_restart_at`, валидация interval / test_mode
-- **RCON** — парсер bercon-cli `players`, bilingual say, lock, kick_all
-- **RPT tail + READY** — `ServerRptWatcher`, фазы `startup_phase`, скрытая консоль, WS `/ws/servers/{id}/logs`, Server log на карточке
-- **Live stats на карточке** — FPS из RPT, игроки X/max и список ников (RCON + `serverDZ.cfg`)
-- **Игровой чат** — ExpLog tail 24 ч, WS `/ws/servers/{id}/chat`, `POST /chat/say`; wall-clock timestamps; RCON inject для broadcast
-- **Server log UI** — инкрементальный DOM, append лога без моргания (`syncServers`, `app.js?v=12`)
-- **Проверка модов** — Steam Web API через `certifi` на Windows
+## Done
 
-## Приоритет 1
+- **Planned restart** — interval from 00:00, stages T-30/15/10/5/0, RU+EN say, lock + kick at T-5
+- **Web UI** — Restart block on server card (auto + planned, Save, Next restart)
+- **API** — `planned_restart`, `next_restart_at`, interval / test_mode validation
+- **RCON** — bercon-cli `players` parser, bilingual say, lock, kick_all
+- **RPT tail + READY** — `ServerRptWatcher`, `startup_phase`, hidden console, WS `/ws/servers/{id}/logs`, Server log on card
+- **Live stats on card** — FPS from RPT, players X/max and nicknames (RCON + `serverDZ.cfg`)
+- **In-game chat** — ExpLog tail 24 h, WS `/ws/servers/{id}/chat`, `POST /chat/say`; wall-clock timestamps
+- **Server log UI** — incremental DOM, append without flicker (`syncServers`, `app.js?v=12`)
+- **Mod check** — Steam Web API via `certifi` on Windows
 
-### Расширение планировщика
-- Дни недели и фиксированное время (дополнение к интервалу от 00:00)
-- Несколько шаблонов расписания на сервер
+## Priority 1
 
-### Preset-команды RCON
-- `say`, `kick`, `ban`, `save`, `shutdown` из UI
-- Массовые предупреждения вне planned restart
+### Scheduler extensions
+- Weekdays and fixed time (in addition to interval from 00:00)
+- Multiple schedule templates per server
 
-### Расширенный статус сервера
+### RCON preset commands
+- `say`, `kick`, `ban`, `save`, `shutdown` from UI
+- Mass warnings outside planned restart
+
+### Extended server status
 - Game-port / query-port
 - RCON alive, uptime
-- ~~READY по RPT~~ — сделано (`startup_phase`, маркер IdleMode)
-- ~~FPS, игроки онлайн~~ — на карточке (`server_fps`, `players`, `max_players`)
-- Текущая карта / preset
+- ~~READY from RPT~~ — done (`startup_phase`, IdleMode marker)
+- ~~FPS, online players~~ — on card (`server_fps`, `players`, `max_players`)
+- Current map / preset
 
-### Редактор конфигов в UI
+### Config editor in UI
 - `serverDZ.cfg`, `mod_list.txt`, launch args, BattlEye
 
-### Безопасный restart flow
-- Сценарий: say → save → shutdown → проверка stop → start
+### Safe restart flow
+- Scenario: say → save → shutdown → verify stop → start
 
-## Приоритет 2
+## Priority 2
 
-- Backup / rollback конфигов и mod_list
-- Аудит действий (кто start/stop/sync)
-- Health dashboard (порты, ключи, SteamCMD, конфликты)
-- Pre-flight валидация перед start
-- Telegram / Discord уведомления (модуль есть, не подключён)
+- Backup / rollback for configs and mod_list
+- Action audit (who start/stop/sync)
+- Health dashboard (ports, keys, SteamCMD, conflicts)
+- Pre-flight validation before start
+- Telegram / Discord notifications (module exists, not connected)
 
-## DayZ-специфика
+## DayZ-specific
 
 - Ban list / whitelist / priority queue
-- Поиск по логам сервера и BattlEye
-- Профили запуска: prod / test / event
-- Сравнение конфигов между серверами
+- Search server and BattlEye logs
+- Launch profiles: prod / test / event
+- Compare configs between servers
 
-## Топ-5 для следующего MVP
+## Top 5 for next MVP
 
-1. Редактор конфигов и mod_list
-2. Preset RCON-команды
+1. Config and mod_list editor
+2. RCON preset commands
 3. Backup / rollback
-4. Аудит + уведомления
-5. Health dashboard (порты, SteamCMD)
+4. Audit + notifications
+5. Health dashboard (ports, SteamCMD)
 
-## Вне scope (обсуждалось отдельно)
+## Out of scope (discussed separately)
 
-- Не блокировать WatchDog при failed SteamCMD download, если sync OK
-- Ожидание снятия `SERVER_LOCK` в `prepare_server_for_start`
-- Пометка `mod_versions` при недоступном Steam API
+- Do not block WatchDog on failed SteamCMD download if sync OK
+- Wait for `SERVER_LOCK` release in `prepare_server_for_start`
+- Mark `mod_versions` when Steam API unavailable

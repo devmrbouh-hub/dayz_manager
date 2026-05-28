@@ -1,13 +1,13 @@
 {
-  "comment": "ШАБЛОН КОНФИГА ПОД ХОСТ — скопируйте на хост и подставьте реальные значения",
+  "comment": "HOST CONFIG TEMPLATE — copy to config/config.json and set real paths and secrets",
 
   "steam": {
     "username": "your_steam_login",
     "password": "your_steam_password",
     "guard_code": null,
-    "steamcmd_path": "D:\\путь\\к\\steamcmd\\steamcmd.exe",
-    "dayz_install_path": "D:\\путь\\к\\Steam",
-    "workshop_path": "D:\\путь\\к\\DayZ\\!Workshop"
+    "steamcmd_path": "D:\\path\\to\\steamcmd\\steamcmd.exe",
+    "dayz_install_path": "D:\\path\\to\\Steam",
+    "workshop_path": "D:\\path\\to\\DayZ\\!Workshop"
   },
 
   "rcon": {
@@ -17,8 +17,8 @@
   "servers": [
     {
       "id": "server1",
-      "name": "BANOV #1",
-      "path": "D:\\Servers\\Banov1",
+      "name": "My Server #1",
+      "path": "D:\\Servers\\Server1",
       "exe": "DayZServer_x64.exe",
       "port": 2302,
       "query_port": 2303,
@@ -57,8 +57,8 @@
     },
     {
       "id": "server2",
-      "name": "BANOV #2",
-      "path": "D:\\Servers\\Banov2",
+      "name": "My Server #2",
+      "path": "D:\\Servers\\Server2",
       "exe": "DayZServer_x64.exe",
       "port": 2402,
       "query_port": 2403,
@@ -118,7 +118,7 @@
   },
 
   "auth": {
-    "api_key": "ИЗМЕНИТЕ_ЭТОТ_API_КЛЮЧ",
+    "api_key": "change_this_api_key",
     "users": [
       { "username": "admin", "password": "admin_pass", "role": "admin" },
       { "username": "viewer", "password": "view_pass", "role": "viewer" }

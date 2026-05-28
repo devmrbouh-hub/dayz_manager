@@ -1,101 +1,103 @@
-# REST API и WebSocket
+﻿# REST API and WebSocket
 
-Базовый URL: `http://<host>:<web.port>/` (по умолчанию `:8000`).
+**Languages:** [English](API.md) · [Русский](ru/API.md)
 
-## Авторизация
+Base URL: `http://<host>:<web.port>/` (default `:8000`).
 
-Мутирующие запросы (**POST**, **PUT**, **DELETE**) требуют заголовок:
+## Authentication
+
+Mutating requests (**POST**, **PUT**, **DELETE**) require header:
 
 ```
 X-API-Key: <auth.api_key>
 ```
 
-GET — без ключа. Роли `auth.users` в REST **не используются** (задел под будущий UI-login).
+GET — no key. Roles in `auth.users` are **not used** in REST (reserved for future UI login).
 
-## Серверы
+## Servers
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | `/api/servers` | Список серверов и статус |
-| GET | `/api/servers/{id}` | Один сервер |
-| POST | `/api/servers/{id}/start` | Запуск |
-| POST | `/api/servers/{id}/stop` | Остановка |
-| POST | `/api/servers/{id}/restart` | Перезапуск |
-| POST | `/api/servers/{id}/rcon/test` | Проверка RCON (`players`) |
-| POST | `/api/servers` | Добавить сервер |
-| PUT | `/api/servers/{id}` | Обновить сервер (в т.ч. `planned_restart`) |
-| DELETE | `/api/servers/{id}` | Удалить сервер |
-| GET | `/api/servers/{id}/logs/tail` | Последние N строк RPT из буфера (`lines`, max 500) |
-| GET | `/api/servers/{id}/chat` | История игрового чата (`limit`, `since`) |
-| POST | `/api/servers/{id}/chat/say` | Отправить текст всем игрокам (RCON `say -1`) |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/servers` | List servers and status |
+| GET | `/api/servers/{id}` | One server |
+| POST | `/api/servers/{id}/start` | Start |
+| POST | `/api/servers/{id}/stop` | Stop |
+| POST | `/api/servers/{id}/restart` | Restart |
+| POST | `/api/servers/{id}/rcon/test` | RCON test (`players`) |
+| POST | `/api/servers` | Add server |
+| PUT | `/api/servers/{id}` | Update server (incl. `planned_restart`) |
+| DELETE | `/api/servers/{id}` | Remove server |
+| GET | `/api/servers/{id}/logs/tail` | Last N RPT lines from buffer (`lines`, max 500) |
+| GET | `/api/servers/{id}/chat` | Chat history (`limit`, `since`) |
+| POST | `/api/servers/{id}/chat/say` | Broadcast text to players (RCON `say -1`) |
 
-Ответ `GET /api/servers` и `GET /api/servers/{id}` включает:
+`GET /api/servers` and `GET /api/servers/{id}` include:
 
 - `planned_restart` — `{ enabled, interval_minutes, test_mode }`
-- `next_restart_at` — ISO datetime следующего слота (если enabled)
+- `next_restart_at` — ISO datetime of next slot (if enabled)
 - `startup_phase` — `stopped` | `starting` | `ready`
-- `ready_at`, `current_rpt`, `startup_warning` — см. [CONFIG.md](CONFIG.md)
-- `server_fps` — последний FPS из RPT (`Average server FPS`, округлённо)
-- `player_count`, `max_players`, `players` — онлайн через RCON poll (~5 с)
-- `rcon_players_ok` — удалось ли получить список игроков
-- `chat_available` — есть каталог Expansion `ExpLog`
+- `ready_at`, `current_rpt`, `startup_warning` — see [CONFIG.md](CONFIG.md)
+- `server_fps` — last FPS from RPT (`Average server FPS`, rounded)
+- `player_count`, `max_players`, `players` — online via RCON poll (~5 s)
+- `rcon_players_ok` — whether player list was fetched
+- `chat_available` — Expansion `ExpLog` directory exists
 
-В Web UI: блок **Restart**, статус **STARTING/READY**, **FPS / Игроки**, **Server log (RPT)**, **Игровой чат**.
+Web UI: **Restart** block, **STARTING/READY**, **FPS / Players**, **Server log (RPT)**, **In-game chat**.
 
-## Моды
+## Mods
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/api/mods/check` | Проверка обновлений (+ `details` по серверам) |
-| POST | `/api/mods/sync` | Синхронизация junction/keys |
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/mods/check` | Check updates (+ per-server `details`) |
+| POST | `/api/mods/sync` | Sync junctions/keys |
 
-## Логи и настройки
+## Logs and settings
 
-| Метод | Путь | Описание |
-|-------|------|----------|
-| GET | `/api/logs` | Последние записи лога |
-| POST | `/api/logs/clean` | Очистка по `log_retention_days` |
-| GET | `/api/settings` | Глобальные настройки |
-| PUT | `/api/settings` | Обновление (см. hot-reload в CONFIG) |
-| POST | `/api/shutdown` | Остановка процесса менеджера |
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/logs` | Recent log entries |
+| POST | `/api/logs/clean` | Clean by `log_retention_days` |
+| GET | `/api/settings` | Global settings |
+| PUT | `/api/settings` | Update (see hot-reload in CONFIG) |
+| POST | `/api/shutdown` | Stop manager process |
 
 ## WebSocket
 
-| Путь | Описание |
-|------|----------|
-| `ws://host:port/ws/logs` | Логи менеджера в реальном времени |
-| `ws://host:port/ws/servers/{id}/logs` | Лог RPT сервера (JSON-сообщения) |
-| `ws://host:port/ws/servers/{id}/chat` | Игровой чат (Expansion ExpLog) |
+| Path | Description |
+|------|-------------|
+| `ws://host:port/ws/logs` | Manager logs in real time |
+| `ws://host:port/ws/servers/{id}/logs` | Server RPT log (JSON messages) |
+| `ws://host:port/ws/servers/{id}/chat` | In-game chat (Expansion ExpLog) |
 
-До инициализации логгера — HTTP 503.
+HTTP 503 until logger is initialized.
 
 ### WebSocket RPT (`/ws/servers/{id}/logs`)
 
-| `t` | Поля | Описание |
-|-----|------|----------|
-| `s` | `phase`, `warning`, `rpt` | Статус сессии при подключении |
-| `l` | `m`, `h` | Строка лога; `h=true` для READY-маркера |
-| `r` | `at` | Событие перехода в READY |
+| `t` | Fields | Description |
+|-----|--------|-------------|
+| `s` | `phase`, `warning`, `rpt` | Session status on connect |
+| `l` | `m`, `h` | Log line; `h=true` for READY marker |
+| `r` | `at` | READY transition event |
 
-При подключении сначала отправляется `s`, затем до 200 строк из буфера, затем live `l`.
+On connect: `s`, then up to 200 buffered lines, then live `l`.
 
 ### WebSocket chat (`/ws/servers/{id}/chat`)
 
-| `t` | Поля | Описание |
-|-----|------|----------|
-| `c` | `ts`, `channel`, `player`, `text` | Строка чата |
+| `t` | Fields | Description |
+|-----|--------|-------------|
+| `c` | `ts`, `channel`, `player`, `text` | Chat line |
 
-При подключении replay до 200 сообщений из буфера (24 ч), затем live `c`.
+On connect: replay up to 200 messages (24 h), then live `c`.
 
-## Примеры
+## Examples
 
 ```powershell
 curl http://127.0.0.1:8000/api/servers
 
-curl -X POST http://127.0.0.1:8000/api/servers/banov/start `
+curl -X POST http://127.0.0.1:8000/api/servers/server1/start `
   -H "X-API-Key: YOUR_KEY"
 
-curl -X POST http://127.0.0.1:8000/api/servers/banov/rcon/test `
+curl -X POST http://127.0.0.1:8000/api/servers/server1/rcon/test `
   -H "X-API-Key: YOUR_KEY"
 
 curl -X PUT http://127.0.0.1:8000/api/settings `
@@ -103,7 +105,7 @@ curl -X PUT http://127.0.0.1:8000/api/settings `
   -H "Content-Type: application/json" `
   -d "{\"mod_check_interval\": 600}"
 
-curl -X PUT http://127.0.0.1:8000/api/servers/banov `
+curl -X PUT http://127.0.0.1:8000/api/servers/server1 `
   -H "X-API-Key: YOUR_KEY" `
   -H "Content-Type: application/json" `
   -d "{\"planned_restart\": {\"enabled\": true, \"interval_minutes\": 240, \"test_mode\": false}}"
@@ -114,13 +116,13 @@ const ws = new WebSocket('ws://127.0.0.1:8000/ws/logs');
 ws.onmessage = (e) => console.log(e.data);
 ```
 
-## Ответ mods/check
+## mods/check response
 
-- `updates` — краткий список модов с обновлениями
-- `details.<server_id>.effective_mods` — полный список
-- `details.<server_id>.tracked_mods` / `skipped_mods` — с Workshop ID и без
+- `updates` — short list of mods with updates
+- `details.<server_id>.effective_mods` — full list
+- `details.<server_id>.tracked_mods` / `skipped_mods` — with/without Workshop ID
 
-## Ответ rcon/test
+## rcon/test response
 
 - `success`, `message`
 - `diagnostics`: `client_path`, `host`, `port`, `timeout`, `error_type`

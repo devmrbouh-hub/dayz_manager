@@ -4,91 +4,93 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DayZ Server Manager</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <header class="header">
             <div class="header-left">
-                <h1>🎮 DayZ Server Manager</h1>
+                <h1 data-i18n="app.title">DayZ Server Manager</h1>
             </div>
             <div class="header-right">
-                <input type="password" id="api-key-input" class="api-key-input" 
+                <div class="lang-switch" role="group" aria-label="Language">
+                    <button type="button" class="lang-switch-btn" data-lang="en" data-i18n="lang.en">EN</button>
+                    <button type="button" class="lang-switch-btn" data-lang="ru" data-i18n="lang.ru">RU</button>
+                </div>
+                <input type="password" id="api-key-input" class="api-key-input"
+                       data-i18n-placeholder="header.apiKey"
+                       data-i18n-title="header.apiKeyTitle"
                        placeholder="API Key" title="API Key for authentication">
                 <span id="connection-status" class="status-dot offline"></span>
-                <span id="connection-text">Disconnected</span>
-                <button id="btn-shutdown" class="btn btn-danger btn-small" onclick="shutdownManager()" title="Выключить менеджер">⏻ Shutdown</button>
+                <span id="connection-text" data-i18n="header.disconnected">Disconnected</span>
+                <button id="btn-shutdown" class="btn btn-danger btn-small" onclick="shutdownManager()"
+                        data-i18n="header.shutdown" data-i18n-title="header.shutdownTitle">Shutdown</button>
             </div>
         </header>
 
-        <!-- Main Content -->
         <main class="main">
-            <!-- Servers Section -->
             <section class="servers">
                 <div class="section-header">
-                    <h2>Servers</h2>
-                    <button id="btn-refresh" class="btn btn-secondary" onclick="refreshServers()">🔄 Refresh</button>
+                    <div class="section-header-titles">
+                        <h2 data-i18n="servers.title">Servers</h2>
+                        <span id="servers-section-summary" class="section-summary"></span>
+                    </div>
+                    <button id="btn-refresh" class="btn btn-secondary" onclick="refreshServers()" data-i18n="servers.refresh">Refresh</button>
                 </div>
-                <div id="servers-container" class="servers-container">
-                    <!-- Servers will be loaded here -->
-                </div>
+                <div id="servers-container" class="servers-container"></div>
             </section>
 
-            <!-- Logs Section -->
             <section class="logs">
                 <div class="section-header">
-                    <h2>Live Logs</h2>
-                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
+                    <h2 data-i18n="logs.title">Live Logs</h2>
+                    <button class="btn btn-secondary" onclick="clearLogs()" data-i18n="logs.clear">Clear</button>
                 </div>
-                <div id="logs-container" class="logs-container">
-                    <!-- Logs will be loaded here -->
-                </div>
+                <div id="logs-container" class="logs-container"></div>
             </section>
         </main>
     </div>
 
-    <!-- Add Server Modal -->
     <div id="add-server-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>Add Server</h3>
-                <button class="close-btn" onclick="closeAddServerModal()">&times;</button>
+                <h3 data-i18n="modal.addServer">Add Server</h3>
+                <button type="button" class="close-btn" onclick="closeAddServerModal()" aria-label="Close">&times;</button>
             </div>
             <form id="add-server-form" onsubmit="addServer(event)">
                 <div class="form-group">
-                    <label for="server-id">Server ID</label>
-                    <input type="text" id="server-id" required placeholder="e.g., banov">
+                    <label for="server-id" data-i18n="modal.serverId">Server ID</label>
+                    <input type="text" id="server-id" required data-i18n-placeholder="modal.serverIdPh" placeholder="e.g., server1">
                 </div>
                 <div class="form-group">
-                    <label for="server-name">Name</label>
-                    <input type="text" id="server-name" required placeholder="e.g., BANOV">
+                    <label for="server-name" data-i18n="modal.name">Name</label>
+                    <input type="text" id="server-name" required data-i18n-placeholder="modal.namePh" placeholder="e.g., My DayZ Server">
                 </div>
                 <div class="form-group">
-                    <label for="server-path">Path</label>
-                    <input type="text" id="server-path" required placeholder="e.g., D:\Banov">
+                    <label for="server-path" data-i18n="modal.path">Path</label>
+                    <input type="text" id="server-path" required data-i18n-placeholder="modal.pathPh" placeholder="e.g., D:\Servers\MyServer">
                 </div>
                 <div class="form-group">
-                    <label for="server-port">Port</label>
-                    <input type="number" id="server-port" required placeholder="e.g., 2232">
+                    <label for="server-port" data-i18n="modal.port">Port</label>
+                    <input type="number" id="server-port" required data-i18n-placeholder="modal.portPh" placeholder="e.g., 2302">
                 </div>
                 <div class="form-group">
-                    <label for="rcon-port">RCON Port</label>
-                    <input type="number" id="rcon-port" required placeholder="e.g., 2234">
+                    <label for="rcon-port" data-i18n="modal.rconPort">RCON Port</label>
+                    <input type="number" id="rcon-port" required data-i18n-placeholder="modal.rconPortPh" placeholder="e.g., 2304">
                 </div>
                 <div class="form-group">
-                    <label for="rcon-password">RCON Password</label>
+                    <label for="rcon-password" data-i18n="modal.rconPassword">RCON Password</label>
                     <input type="password" id="rcon-password" required>
                 </div>
                 <div class="modal-actions">
-                    <button type="submit" class="btn btn-primary">Add Server</button>
-                    <button type="button" class="btn btn-secondary" onclick="closeAddServerModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" data-i18n="modal.addServer">Add Server</button>
+                    <button type="button" class="btn btn-secondary" onclick="closeAddServerModal()" data-i18n="modal.cancel">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script src="js/server_status.js?v=1"></script>
-    <script src="js/app.js?v=12"></script>
+    <script src="js/i18n.js?v=1"></script>
+    <script src="js/server_status.js?v=2"></script>
+    <script src="js/app.js?v=13"></script>
 </body>
 </html>

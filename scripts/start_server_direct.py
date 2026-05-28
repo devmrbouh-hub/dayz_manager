@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Запуск banov без SteamCMD pre-download (только sync + start)."""
+"""Start a server without SteamCMD pre-download (sync mods + start only)."""
 
 import os
 import sys
@@ -11,18 +11,22 @@ from src.core.config import Config
 from src.core.server_mgr import ServerManager
 from src.core.mod_sync import ModSync
 from src.utils.logger import LoggerManager
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _resolve_server import resolve_server_id
 
 
 def main():
     os.chdir(ROOT)
     config = Config()
     config.load()
-    server = config.get_server("banov")
+    server_id = resolve_server_id(config)
+    server = config.get_server(server_id)
     logger = LoggerManager()
     mgr = ServerManager(config, logger)
     mod_sync = ModSync(config, logger)
 
     server_dir = mgr._server_dir(server)
+    print(f"server_id={server_id}")
     print(f".stopped before: {(server_dir / '.stopped').exists()}")
     print(f"lock before: {mgr.is_locked(server)}")
 

@@ -12,6 +12,7 @@ if not defined API_KEY (
     exit /b 1
 )
 if not defined BASE_URL set BASE_URL=http://localhost:8000
+if not defined SERVER_ID set SERVER_ID=server1
 
 REM Проверка что менеджер запущен
 echo [1/5] Checking if manager is running...
@@ -38,7 +39,7 @@ echo.
 
 REM Тест RCON
 echo [3/5] Testing RCON connection...
-curl -s -X POST -H "X-API-Key: %API_KEY%" %BASE_URL%/api/servers/banov/rcon/test > temp_rcon.json
+curl -s -X POST -H "X-API-Key: %API_KEY%" %BASE_URL%/api/servers/%SERVER_ID%/rcon/test > temp_rcon.json
 findstr "success" temp_rcon.json | findstr "true" >nul
 if %errorlevel% neq 0 (
     echo [WARN] RCON test failed or disabled

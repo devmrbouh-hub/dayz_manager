@@ -69,25 +69,50 @@ class ServerManager:
         return self._server_dir(server) / server['exe']
 
     def _process_matches_server(self, process: psutil.Process, server: dict) -> bool:
+        """Процесс принадлежит этому серверу (exe в папке servers[].path, не любой DayZ на хосте)."""
         try:
-            name = (process.name() or '').lower()
-            if 'dayzserver' in name:
-                return True
-            exe = process.exe()
-            if exe:
-                expected = str(self._expected_exe_path(server).resolve()).lower()
-                if str(Path(exe).resolve()).lower() == expected:
+            expected_exe = str(self._expected_exe_path(server).resolve()).lower()
+            try:
+                exe = process.exe()
+                if exe and str(Path(exe).resolve()).lower() == expected_exe:
                     return True
-        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            except (psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+
+            server_dir = str(self._server_dir(server).resolve()).lower()
+            try:
+                cwd = process.cwd()
+                if cwd and str(Path(cwd).resolve()).lower() == server_dir:
+                    name = (process.name() or '').lower()
+                    if 'dayzserver' in name:
+                        return True
+            except (psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        except psutil.NoSuchProcess:
             return False
         return False
+
+    def _pids_claimed_by_other_servers(self, server: dict) -> set[int]:
+        """PID, уже привязанные к другим серверам из config (не перехватывать при recovery)."""
+        claimed: set[int] = set()
+        current_id = server['id']
+        for other in self.config.servers:
+            if other.get('id') == current_id:
+                continue
+            pid = self.get_pid(other)
+            if pid:
+                claimed.add(pid)
+        return claimed
 
     def _recover_pid(self, server: dict) -> Optional[int]:
         """Найти PID DayZ в папке сервера, если server.pid устарел."""
         server_dir = self._server_dir(server)
+        claimed = self._pids_claimed_by_other_servers(server)
         try:
             for proc in psutil.process_iter(['pid', 'name', 'exe']):
                 try:
+                    if proc.pid in claimed:
+                        continue
                     if self._process_matches_server(proc, server):
                         pid = proc.pid
                         (server_dir / "server.pid").write_text(str(pid))

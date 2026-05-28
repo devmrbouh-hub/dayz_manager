@@ -1,33 +1,39 @@
-# Документация DayZ Manager
+﻿# DayZ Manager documentation
 
-Актуальная документация проекта.
+**Languages:** [English](INDEX.md) · [Русский](ru/INDEX.md)
 
-## Начало работы
+Project documentation (English). Russian mirror: [docs/ru/](ru/INDEX.md).
 
-| Документ | Содержание |
-|----------|------------|
-| [RUNBOOK.md](RUNBOOK.md) | Чеклист: BattlEye, Steam, firewall, smoke tests |
-| [DEPLOY.md](DEPLOY.md) | Новый хост, EXE, служба, workflow merge → build → хост |
-| [CONFIG.md](CONFIG.md) | `config.json`, `planned_restart`, переменные окружения |
+## Documentation sync
 
-## Эксплуатация
+When you change docs, update **both** [docs/](.) and [docs/ru/](ru/) in the same PR (or open a follow-up issue). Facts follow code and `config/*.json` templates.
 
-| Документ | Содержание |
-|----------|------------|
-| [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | WatchDog, SERVER_LOCK, моды, planned restart, Web UI |
-| [API.md](API.md) | REST, WebSocket, `planned_restart`, авторизация |
-| [RUNBOOK.md](RUNBOOK.md) | Типовые проблемы и быстрые проверки |
+## Getting started
 
-## Разработка и релизы
+| Document | Contents |
+|----------|----------|
+| [RUNBOOK.md](RUNBOOK.md) | Checklist: BattlEye, Steam, firewall, smoke tests |
+| [DEPLOY.md](DEPLOY.md) | New host, EXE, service, merge → build → deploy workflow |
+| [CONFIG.md](CONFIG.md) | `config.json`, `planned_restart`, environment variables |
 
-| Документ | Содержание |
-|----------|------------|
-| [CHANGELOG.md](CHANGELOG.md) | История: стабилизация фазы 1, planned restart фазы 2 |
-| [TESTING.md](TESTING.md) | План T1–T6, T4b planned restart, чек-лист |
-| [ROADMAP.md](ROADMAP.md) | Фаза 2: сделано и backlog |
-| [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) | Масштабирование: Cloud, Agent, Bridge, магазин, SaaS |
+## Operations
 
-## Шаблоны конфигурации
+| Document | Contents |
+|----------|----------|
+| [HOW_IT_WORKS.md](HOW_IT_WORKS.md) | WatchDog, SERVER_LOCK, mods, planned restart, Web UI |
+| [API.md](API.md) | REST, WebSocket, `planned_restart`, auth |
+| [RUNBOOK.md](RUNBOOK.md) | Common issues and quick checks |
 
-- `config/config-host-template.json` — один сервер
-- `config/config-host-nru90-template.json` — несколько серверов (пример multi-host)
+## Development and releases
+
+| Document | Contents |
+|----------|----------|
+| [CHANGELOG.md](CHANGELOG.md) | History: phase 1 stabilization, phase 2 planned restart |
+| [TESTING.md](TESTING.md) | Plan T1–T6, T4b planned restart, checklist |
+| [ROADMAP.md](ROADMAP.md) | Phase 2: done and backlog |
+| [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) | Scaling: Cloud, Agent, Bridge, shop, SaaS |
+
+## Config templates
+
+- `config/config-host-template.json` — single server
+- `config/config-host-nru90-template.json` — multiple servers on one host (example)

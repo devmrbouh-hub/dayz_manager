@@ -5,21 +5,36 @@ const MAX_SERVER_LOG_LINES = 300;
 
 const WEAPON_SPAM_SUBSTR = 'WEAPON       : wpn:';
 
-function getServerStatusDisplay(server) {
+const DEFAULT_MESSAGES = {
+    'status.stopped': 'STOPPED',
+    'status.starting': 'STARTING',
+    'status.ready': 'READY',
+    'warning.rpt_not_found': 'RPT not found — check profiles path',
+    'warning.ready_timeout': 'Slow startup — READY marker not seen yet',
+};
+
+function getServerStatusDisplay(server, translate) {
+    const msg = (key) => {
+        if (typeof translate === 'function') {
+            return translate(key);
+        }
+        return DEFAULT_MESSAGES[key] || key;
+    };
+
     if (!server.running) {
-        return { className: 'stopped', text: 'STOPPED', warning: '' };
+        return { className: 'stopped', text: msg('status.stopped'), warning: '' };
     }
     const phase = server.startup_phase || 'starting';
     if (phase === 'ready') {
-        return { className: 'ready', text: 'READY', warning: '' };
+        return { className: 'ready', text: msg('status.ready'), warning: '' };
     }
     let warning = '';
     if (server.startup_warning === 'rpt_not_found') {
-        warning = 'RPT не найден — проверьте profiles';
+        warning = msg('warning.rpt_not_found');
     } else if (server.startup_warning === 'ready_timeout') {
-        warning = 'Долгая загрузка — маркер READY ещё не появился';
+        warning = msg('warning.ready_timeout');
     }
-    return { className: 'starting', text: 'STARTING', warning };
+    return { className: 'starting', text: msg('status.starting'), warning };
 }
 
 function shouldHideWeaponLine(hideWeaponChecked, line) {
@@ -33,6 +48,7 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         MAX_SERVER_LOG_LINES,
         WEAPON_SPAM_SUBSTR,
+        DEFAULT_MESSAGES,
         getServerStatusDisplay,
         shouldHideWeaponLine,
     };
