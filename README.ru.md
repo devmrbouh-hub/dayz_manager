@@ -4,7 +4,9 @@
 
 **Languages:** [English](README.md) · [Русский](README.ru.md)
 
-**Документация:** [docs/ru/INDEX.md](docs/ru/INDEX.md) · **Лицензия:** [MIT](LICENSE)
+**Документация:** [docs/ru/INDEX.md](docs/ru/INDEX.md) · **Лицензия:** [MIT](LICENSE) · **Скачать:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases) (готовый EXE)
+
+> **Описание репозитория на GitHub:** `Менеджер DayZ dedicated server для Windows — веб-UI, несколько серверов, моды SteamCMD, RCON, WatchDog, плановые рестарты`
 
 ## Требования
 
@@ -47,7 +49,7 @@
 ### 1. Клонировать и зависимости
 
 ```powershell
-git clone https://github.com/<user>/dayz_manager.git
+git clone https://github.com/devmrbouh-hub/dayz_manager.git
 cd dayz_manager
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -100,9 +102,17 @@ test_system.bat
 
 ## Production (хост)
 
-На сервере обычно только **EXE** и локальный `config/config.json` (не в git).
+### Вариант A — скачать Release (без сборки)
 
-1. Собрать: `build.bat` → `dist\DayZManager.exe`
+1. **[Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)** → архив **`dayz_manager-*-windows-x64.zip`**
+2. Распаковать; `config\config-host-template.json` → `config\config.json`, отредактировать
+3. Запустить `DayZManager.exe` → http://127.0.0.1:8000
+
+Инструкция: [docs/ru/RELEASES.md](docs/ru/RELEASES.md)
+
+### Вариант B — собрать из исходников
+
+1. `build.bat` → `dist\DayZManager.exe` (нужен `bercon-cli.exe` в корне проекта)
 2. Скопировать EXE на хост; **не перезаписывать** рабочий `config.json`
 3. Шаблоны: `config/config-host-template.json`, `config/config-host-nru90-template.json`
 

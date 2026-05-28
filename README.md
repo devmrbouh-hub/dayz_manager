@@ -4,7 +4,9 @@
 
 Unified DayZ server manager for Windows: web UI, REST API, WatchDog, SteamCMD mod updates, planned and CRON restarts. **Any map and mod set** — configured only via `config.json` (server path, `mod_list.txt`, launch args). Multiple instances on one host.
 
-**Docs:** [docs/INDEX.md](docs/INDEX.md) · **License:** [MIT](LICENSE)
+**Docs:** [docs/INDEX.md](docs/INDEX.md) · **License:** [MIT](LICENSE) · **Downloads:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases) (ready-made EXE, no build)
+
+> **GitHub About (description):** `DayZ dedicated server manager for Windows — web UI, multi-server, SteamCMD mods, RCON, WatchDog, planned restarts`
 
 ## Prerequisites
 
@@ -49,7 +51,7 @@ Expanded server card — restart settings, RPT log, in-game chat:
 ### 1. Clone and dependencies
 
 ```powershell
-git clone https://github.com/<user>/dayz_manager.git
+git clone https://github.com/devmrbouh-hub/dayz_manager.git
 cd dayz_manager
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
@@ -102,9 +104,17 @@ Next: [RUNBOOK.md](docs/RUNBOOK.md) (BattlEye, firewall), [DEPLOY.md](docs/DEPLO
 
 ## Production (host)
 
-On the game host you usually run only **EXE** and local `config/config.json` (not in git).
+### Option A — Download release (recommended if you do not build)
 
-1. Build: `build.bat` → `dist\DayZManager.exe`
+1. Open **[Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)** → latest **`dayz_manager-*-windows-x64.zip`**
+2. Unzip on the host; copy `config\config-host-template.json` → `config\config.json` and edit
+3. Run `DayZManager.exe` → http://127.0.0.1:8000
+
+Step-by-step: [docs/RELEASES.md](docs/RELEASES.md)
+
+### Option B — Build from source
+
+1. `build.bat` → `dist\DayZManager.exe` (requires `bercon-cli.exe` in project root)
 2. Copy EXE to host; **do not overwrite** working `config.json`
 3. Templates: `config/config-host-template.json`, `config/config-host-nru90-template.json`
 
