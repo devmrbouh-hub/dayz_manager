@@ -12,12 +12,15 @@ If you do not want to install Python or run `build.bat`, use a **[GitHub Release
 
 ## Contents of the ZIP
 
-| File | Purpose |
-|------|---------|
+| File / folder | Purpose |
+|---------------|---------|
 | `DayZManager.exe` | Manager (web UI + API) |
+| `web/` | **Required** — static Web UI (must stay next to EXE) |
 | `bercon-cli.exe` | RCON client (required next to EXE unless path set in config) |
 | `config/config-host-template.json` | Copy to `config\config.json` and edit |
 | `README-RELEASE.txt` | Short install steps |
+
+When updating, replace **both** `DayZManager.exe` and the entire `web\` folder.
 
 ## First run on the host
 

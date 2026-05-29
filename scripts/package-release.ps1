@@ -9,8 +9,9 @@ if ($env:RELEASE_VERSION) { $Version = $env:RELEASE_VERSION.TrimStart("v") }
 $Exe = Join-Path $Root "dist\DayZManager.exe"
 $Bercon = Join-Path $Root "bercon-cli.exe"
 $Template = Join-Path $Root "config\config-host-template.json"
+$WebSrc = Join-Path $Root "web"
 
-foreach ($p in @($Exe, $Bercon, $Template)) {
+foreach ($p in @($Exe, $Bercon, $Template, $WebSrc)) {
     if (-not (Test-Path $p)) {
         Write-Error "Missing: $p"
     }
@@ -27,9 +28,17 @@ New-Item -ItemType Directory -Path (Join-Path $Stage "config") -Force | Out-Null
 Copy-Item $Exe (Join-Path $Stage "DayZManager.exe")
 Copy-Item $Bercon (Join-Path $Stage "bercon-cli.exe")
 Copy-Item $Template (Join-Path $Stage "config\config-host-template.json")
+# EXE reads web UI from ./web next to DayZManager.exe (see src/main.py, frozen mode)
+Copy-Item $WebSrc (Join-Path $Stage "web") -Recurse -Force
 
 @(
 "DayZ Server Manager v$Version (Windows x64)"
+""
+"Layout (keep together):"
+"  DayZManager.exe"
+"  bercon-cli.exe"
+"  web\          <- required for Web UI"
+"  config\config.json"
 ""
 "1. copy config\config-host-template.json -> config\config.json"
 "2. Edit config\config.json (api_key, paths, ports, RCON)"

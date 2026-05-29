@@ -105,11 +105,12 @@ Layout next to EXE:
 ```
 C:\DayZManager\
 ├── DayZManager.exe
+├── bercon-cli.exe
+├── web\              # required — EXE serves static files from here
 ├── config\config.json
 ├── hooks\
 ├── data\
-├── logs\
-└── web\          # if not onefile — see actual build
+└── logs\
 ```
 
 ## Windows service (optional)
