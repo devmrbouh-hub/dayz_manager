@@ -1,6 +1,6 @@
 ﻿# Runbook — быстрый чеклист
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../RUNBOOK.md) · [Русский](RUNBOOK.md)
 
 
 ## Перед запуском

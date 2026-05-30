@@ -5,6 +5,8 @@
 File: `config/config.json` (local, **not in git** — see `.gitignore`).  
 Templates: `config/config-host-template.json`, `config/config-host-nru90-template.json`.
 
+Current deployment model: **local host manager / future host agent**. Keep the built-in UI/API on a trusted host or private admin network; public internet exposure is not supported by this repository.
+
 ## Steam environment variables
 
 Do not store passwords in the repo. Supported:
@@ -99,7 +101,7 @@ If `steam.username` / `steam.password` are empty, the manager reads env vars.
 | **scheduler** | mod_check_interval | Seconds between mod checks | No (600) |
 | | log_clean_interval | Log cleanup | No (86400) |
 | | restart_schedule | CRON restarts | No |
-| **auth** | api_key | `X-API-Key` for POST/PUT/DELETE | Yes |
+| **auth** | api_key | `X-API-Key` for local admin operations | Yes |
 | | users | Placeholder for UI login; REST uses api_key only | No |
 | **settings** | watchdog_interval | WatchDog, seconds | No (10) |
 | | restart_notify_minutes | Warning before CRON restart | No (5) |
@@ -134,6 +136,8 @@ If `steam.username` / `steam.password` are empty, the manager reads env vars.
 | `player_count`, `max_players`, `players` | Online / slots / `[{id,name}]` |
 
 Server logs: tail `{path}/{profiles}/DayZServer_x64_*.RPT`, WebSocket `/ws/servers/{id}/logs`.
+
+Failed-start cleanup: if the server process is spawned but never reaches confirmed `running`, the manager terminates that child process, clears `server.pid`, and ends temporary watcher sessions before reporting failure.
 
 ## planned_restart
 
@@ -196,10 +200,20 @@ Per server: `servers[].rcon` with `enabled`, `host`, `port`, `password`, `mode` 
 
 On production host with DayZ on same machine, prefer `127.0.0.1`.
 
+## Hooks
+
+`servers[].hooks.beforeStart` / `afterStop` run Python files from the installation directory. Treat hooks as trusted code execution. In EXE mode, hook paths are resolved relative to the folder containing `DayZManager.exe`; paths outside that base directory are skipped.
+
 ## Settings hot-reload
 
 `PUT /api/settings` with `mod_check_interval` updates `scheduler.mod_check_interval` and restarts ModCheck without restarting the manager. See [API.md](API.md).
 
+For runtime updates, the manager validates numeric settings and rejects invalid ranges before writing `config.json` (for example zero/negative watchdog or too-small mod-check intervals).
+
 ## Port warning
 
 On start the manager compares `port` / `query_port` with `serverDZ.cfg` and logs a warning on mismatch.
+
+## Data files
+
+Workshop/hash caches are stored under `data/`. In frozen EXE deployments these files live next to `DayZManager.exe` in the external installation directory, not inside the temporary PyInstaller bundle.

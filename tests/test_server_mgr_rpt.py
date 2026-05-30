@@ -52,6 +52,27 @@ def test_start_end_session_on_confirm_fail(mgr_setup):
     rpt.end_session.assert_called_once_with(server["id"])
 
 
+def test_start_confirm_failure_terminates_process_and_clears_pid(mgr_setup):
+    mgr, server, rpt, tmp_path = mgr_setup
+    process = MagicMock(pid=12345)
+    process.poll.return_value = None
+    process.wait.return_value = 0
+
+    with patch.object(mgr, "acquire_lock", return_value=True), \
+         patch.object(mgr, "is_running", return_value=False), \
+         patch.object(mgr, "wait_until_running", return_value=False), \
+         patch.object(mgr, "_validate_config_ports"), \
+         patch("src.core.server_mgr.subprocess.Popen", return_value=process), \
+         patch("src.core.mod_sync.ModSync") as mod_sync_cls:
+        mod_sync_cls.return_value.sync_mods.return_value = ""
+        assert mgr.start_server(server, "mod") is False
+
+    process.terminate.assert_called_once()
+    process.kill.assert_not_called()
+    assert not (tmp_path / "server.pid").exists()
+    rpt.end_session.assert_called_once_with(server["id"])
+
+
 def test_stop_calls_end_session(mgr_setup):
     mgr, server, rpt, tmp_path = mgr_setup
     with patch.object(mgr, "is_running", return_value=False):
@@ -118,3 +139,26 @@ def test_get_status_merges_startup_fields(mgr_setup):
     assert status["startup_phase"] == "ready"
     assert status["ready_at"] == "2026-05-24T12:00:00"
     assert status["current_rpt"] == "DayZServer_x64_test.RPT"
+
+
+def test_restart_aborts_when_stop_fails(mgr_setup):
+    mgr, server, rpt, tmp_path = mgr_setup
+    with patch.object(mgr, "stop_server", side_effect=[False, False]) as stop_mock, \
+         patch.object(mgr, "start_server") as start_mock, \
+         patch("src.core.server_mgr.time.sleep"):
+        assert mgr.restart_server(server, "mod") is False
+
+    assert stop_mock.call_count == 2
+    start_mock.assert_not_called()
+
+
+def test_restart_aborts_if_server_still_running_after_stop(mgr_setup):
+    mgr, server, rpt, tmp_path = mgr_setup
+    with patch.object(mgr, "stop_server", return_value=True) as stop_mock, \
+         patch.object(mgr, "is_running", return_value=True), \
+         patch.object(mgr, "start_server") as start_mock, \
+         patch("src.core.server_mgr.time.sleep"):
+        assert mgr.restart_server(server, "mod") is False
+
+    stop_mock.assert_called_once_with(server)
+    start_mock.assert_not_called()

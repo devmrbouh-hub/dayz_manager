@@ -1,6 +1,6 @@
 ﻿# REST API и WebSocket
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../API.md) · [Русский](API.md)
 
 
 Базовый URL: `http://<host>:<web.port>/` (по умолчанию `:8000`).

@@ -166,7 +166,7 @@ For SaaS: onboarding (token → agent → server in panel), health dashboard, ag
 | **3** | Map (Bridge + WebSocket), stats (logs → mod events) |
 | **4** | Shop, billing, white-label |
 
-`feature/admin-ui` in this repo is **local host panel**. Public admin is a separate frontend on Cloud API.
+The current UI in this repo is a **local host panel / future agent surface**. Public admin remains a separate frontend on Cloud API.
 
 ---
 
@@ -196,4 +196,4 @@ For SaaS: onboarding (token → agent → server in panel), health dashboard, ag
 
 ---
 
-*Document created: 2026-05-23. Context: scaling discussion after merge `feature/stability` → `master`.*
+*Document created: 2026-05-23. Context: scaling discussion after merge `feature/stability` → `main`.*

@@ -11,6 +11,8 @@
 
 Production does **not** need Python sources. After code changes: merge → `build.bat` → replace EXE on host.
 
+The built-in web UI/API is intended for **local host administration**. If you open TCP `8000`, keep it on localhost, trusted LAN, VPN, or behind a separate gateway. Do not expose the raw manager UI directly to the public internet.
+
 ## New host (step by step)
 
 ### 1. Software
@@ -72,7 +74,7 @@ netsh advfirewall firewall add rule name="DayZ RCON UDP 2305 IN" dir=in action=a
 netsh advfirewall firewall add rule name="DayZ Manager TCP 8000 IN" dir=in action=allow protocol=TCP localport=8000
 ```
 
-Use your ports from `serverDZ.cfg`.
+Use your ports from `serverDZ.cfg`. Only open TCP `8000` if you intentionally need access from a trusted admin network.
 
 ### 6. Verify
 
@@ -123,7 +125,7 @@ Requires `nssm` in PATH.
 
 ## Release workflow (recommended)
 
-1. Finish phase on branch (`feature/stability` → merge to `master`).
+1. Finish phase on branch (`feature/stability` → merge to `main`).
 2. On build machine: `build.bat`.
 3. Copy `dist\DayZManager.exe` to host.
 4. Smoke: `GET /api/servers`, `POST .../rcon/test`, `POST /api/mods/check`.

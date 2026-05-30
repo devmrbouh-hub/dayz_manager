@@ -9,13 +9,10 @@ import urllib.request
 from pathlib import Path
 from typing import Optional
 
+from src.core.runtime_paths import get_runtime_data_file
 from src.utils.http import urlopen as http_urlopen
 
-MOD_VERSIONS_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    'data',
-    'mod_versions.json'
-)
+MOD_VERSIONS_FILE = get_runtime_data_file('mod_versions.json')
 
 
 class SteamCMD:
@@ -105,17 +102,17 @@ class SteamCMD:
         return candidates[0] if candidates else workshop_root
 
     def _load_mod_versions(self) -> dict:
-        if os.path.exists(MOD_VERSIONS_FILE):
+        if MOD_VERSIONS_FILE.exists():
             try:
-                with open(MOD_VERSIONS_FILE, 'r', encoding='utf-8') as f:
+                with MOD_VERSIONS_FILE.open('r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception:
                 return {}
         return {}
 
     def _save_mod_versions(self):
-        os.makedirs(os.path.dirname(MOD_VERSIONS_FILE), exist_ok=True)
-        with open(MOD_VERSIONS_FILE, 'w', encoding='utf-8') as f:
+        MOD_VERSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with MOD_VERSIONS_FILE.open('w', encoding='utf-8') as f:
             json.dump(self.mod_versions, f, indent=2, ensure_ascii=False)
 
     def _get_remote_mod_update_time(self, mod_id: str) -> Optional[int]:

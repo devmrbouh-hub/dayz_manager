@@ -8,9 +8,10 @@ import subprocess
 from pathlib import Path
 from typing import List, Dict, Optional
 
+from src.core.runtime_paths import get_runtime_data_file
 
 # Путь к кэшу хэшей
-MOD_HASHES_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'data', 'mod_hashes.json')
+MOD_HASHES_FILE = get_runtime_data_file('mod_hashes.json')
 WORKSHOP_APP_ID = '221100'
 
 
@@ -30,9 +31,9 @@ class ModSync:
 
     def _load_hashes(self) -> dict:
         """Загрузить кэш хэшей"""
-        if os.path.exists(MOD_HASHES_FILE):
+        if MOD_HASHES_FILE.exists():
             try:
-                with open(MOD_HASHES_FILE, 'r', encoding='utf-8') as f:
+                with MOD_HASHES_FILE.open('r', encoding='utf-8') as f:
                     return json.load(f)
             except:
                 return {}
@@ -40,8 +41,8 @@ class ModSync:
 
     def _save_hashes(self):
         """Сохранить кэш хэшей"""
-        os.makedirs(os.path.dirname(MOD_HASHES_FILE), exist_ok=True)
-        with open(MOD_HASHES_FILE, 'w', encoding='utf-8') as f:
+        MOD_HASHES_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with MOD_HASHES_FILE.open('w', encoding='utf-8') as f:
             json.dump(self.hashes, f, indent=2, ensure_ascii=False)
 
     def _hash_file(self, file_path: Path) -> str:

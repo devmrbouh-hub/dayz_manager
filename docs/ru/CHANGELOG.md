@@ -1,9 +1,20 @@
 ﻿# История изменений
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
 
-## 2026-05-25 — Admin UI в `master` (проверено на reference-хосте)
+## 2026-05-30 — Hardening host-manager на `main`
+
+- Раздача статики теперь режет traversal за пределы `web/`, сохраняя SPA fallback.
+- Неудачный старт DayZ теперь очищает `server.pid`, watcher-сессии и завершает поднятый процесс, чтобы не оставлять orphan-instance.
+- `restart` теперь прерывается, если остановка не подтверждена, чтобы не получить двойной запуск.
+- Shared mod-update lock-и теперь создаются и снимаются как «свои», без удаления чужих уже существующих `SERVER_LOCK`.
+- Усилена runtime-валидация server/settings payload, а frozen EXE хранит кэши данных во внешней директории рядом с `DayZManager.exe`.
+- Документация уточняет текущую модель локального host-manager и будущего agent/cloud-разделения.
+
+---
+
+## 2026-05-25 — Admin UI в `main` (проверено на reference-хосте)
 
 **Статус:** все сценарии ниже проверены на reference-хосте, работает.
 

@@ -320,6 +320,17 @@ if getattr(sys, 'frozen', False):
     web_dir = Path(sys.executable).resolve().parent / "web"
 else:
     web_dir = Path(__file__).parent.parent / "web"
+web_root = web_dir.resolve()
+
+
+def resolve_static_path(path: str) -> Path | None:
+    """Resolve a static asset only if it stays within web_dir."""
+    candidate = (web_root / path).resolve()
+    try:
+        candidate.relative_to(web_root)
+    except ValueError:
+        return None
+    return candidate if candidate.is_file() else None
 
 
 @app.get("/")
@@ -329,8 +340,8 @@ async def serve_index():
 
 @app.get("/{path:path}")
 async def serve_static(path: str):
-    file_path = web_dir / path
-    if file_path.exists():
+    file_path = resolve_static_path(path)
+    if file_path:
         return FileResponse(str(file_path))
     return FileResponse(str(web_dir / "index.html"))
 

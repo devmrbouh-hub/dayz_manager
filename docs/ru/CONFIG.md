@@ -1,10 +1,12 @@
 ﻿# Конфигурация
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../CONFIG.md) · [Русский](CONFIG.md)
 
 
 Файл: `config/config.json` (локально, **не в git** — см. `.gitignore`).  
 Шаблоны: `config/config-host-template.json`, `config/config-host-nru90-template.json`.
+
+Текущая модель развёртывания: **локальный host manager / будущий host agent**. Встроенный UI/API стоит держать на доверенном хосте или в приватной админ-сети; публичный доступ из интернета этим репозиторием не поддерживается.
 
 ## Переменные окружения Steam
 
@@ -100,7 +102,7 @@
 | **scheduler** | mod_check_interval | Сек между проверками модов | ❌ (600) |
 | | log_clean_interval | Очистка логов | ❌ (86400) |
 | | restart_schedule | CRON-рестарты | ❌ |
-| **auth** | api_key | Заголовок `X-API-Key` для POST/PUT/DELETE | ✅ |
+| **auth** | api_key | Заголовок `X-API-Key` для локальных админ-операций | ✅ |
 | | users | Задел под UI-login; REST только api_key | ❌ |
 | **settings** | watchdog_interval | WatchDog, сек | ❌ (10) |
 | | restart_notify_minutes | Предупреждение перед CRON | ❌ (5) |
@@ -135,6 +137,8 @@
 | `player_count`, `max_players`, `players` | Онлайн / слоты / `[{id,name}]` |
 
 Логи сервера: tail `{path}/{profiles}/DayZServer_x64_*.RPT`, WebSocket `/ws/servers/{id}/logs`.
+
+Cleanup failed-start: если процесс сервера успел стартовать, но не дошёл до подтверждённого `running`, менеджер завершает этот процесс, очищает `server.pid` и закрывает временные watcher-сессии перед возвратом ошибки.
 
 ## planned_restart
 
@@ -197,10 +201,20 @@
 
 Для production на одном хосте с DayZ предпочтителен `127.0.0.1`.
 
+## Hooks
+
+`servers[].hooks.beforeStart` / `afterStop` запускают Python-файлы из директории установки. Считайте hooks доверенным выполнением кода. В EXE-режиме пути считаются относительно каталога с `DayZManager.exe`; пути вне базовой директории пропускаются.
+
 ## Hot-reload настроек
 
 `PUT /api/settings` с `mod_check_interval` обновляет `scheduler.mod_check_interval` и перезапускает задачу ModCheck без рестарта менеджера. См. [API.md](API.md).
 
+Для runtime-обновлений менеджер валидирует числовые настройки и отклоняет некорректные диапазоны до записи в `config.json` (например нулевой watchdog или слишком маленький mod-check interval).
+
 ## Предупреждение портов
 
 При старте менеджер сравнивает `port` / `query_port` с `serverDZ.cfg` и пишет warning при расхождении.
+
+## Файлы данных
+
+Кэши Workshop/hash лежат в `data/`. В frozen EXE-сборке эти файлы находятся рядом с `DayZManager.exe` во внешней директории установки, а не внутри временного PyInstaller bundle.

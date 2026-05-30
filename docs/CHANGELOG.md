@@ -2,7 +2,18 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
-## 2026-05-25 — Admin UI in `master` (verified on reference host)
+## 2026-05-30 — Host hardening on `main`
+
+- Static file serving now rejects traversal outside `web/` while keeping SPA fallback behavior.
+- Failed DayZ start now cleans up `server.pid`, watcher sessions, and the spawned child process instead of leaving an orphan instance behind.
+- Restart now aborts if stop could not be confirmed, avoiding accidental double-starts.
+- Shared mod-update locks are acquired/released as owned locks, without deleting pre-existing foreign `SERVER_LOCK` files.
+- Runtime validation was tightened for server/settings payloads, and frozen EXE data caches now resolve to the external install directory next to `DayZManager.exe`.
+- Docs updated to describe the current host-local manager model and the future agent/cloud split more clearly.
+
+---
+
+## 2026-05-25 — Admin UI in `main` (verified on reference host)
 
 **Status:** scenarios below verified on a reference deployment.
 

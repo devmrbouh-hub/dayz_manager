@@ -1,6 +1,6 @@
 ﻿# Развёртывание
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../DEPLOY.md) · [Русский](DEPLOY.md)
 
 
 ## Два режима
@@ -11,6 +11,8 @@
 | Production | Игровой хост | Только `DayZManager.exe` + локальный `config/config.json` |
 
 На production **не нужны** исходники Python. После изменений в коде: merge → `build.bat` → заменить EXE на хосте.
+
+Встроенный web UI/API рассчитан на **локальное администрирование на хосте**. Если открываете TCP `8000`, оставляйте его для localhost, доверенной LAN, VPN или отдельного gateway. Публиковать raw manager UI напрямую в интернет не рекомендуется.
 
 ## Новый хост (пошагово)
 
@@ -73,7 +75,7 @@ netsh advfirewall firewall add rule name="DayZ RCON UDP 2305 IN" dir=in action=a
 netsh advfirewall firewall add rule name="DayZ Manager TCP 8000 IN" dir=in action=allow protocol=TCP localport=8000
 ```
 
-Подставьте свои порты из `serverDZ.cfg`.
+Подставьте свои порты из `serverDZ.cfg`. TCP `8000` открывайте только если он нужен доверенной админ-сети.
 
 ### 6. Проверка
 
@@ -123,11 +125,11 @@ install_service.bat
 
 ## Workflow релиза (рекомендуется)
 
-1. Завершить фазу на ветке (`feature/stability` → merge в `master`).
+1. Завершить фазу на ветке (`feature/stability` → merge в `main`).
 2. На машине сборки: `build.bat`.
 3. Скопировать `dist\DayZManager.exe` на хост.
 4. Smoke: `GET /api/servers`, `POST .../rcon/test`, `POST /api/mods/check`.
-5. Фаза 2: ветка `feature/admin-ui` от `master`.
+5. Следующие feature-ветки ответвлять от актуальной `main`.
 
 ## Несколько серверов на одном хосте
 

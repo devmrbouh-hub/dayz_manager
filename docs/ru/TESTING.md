@@ -1,10 +1,10 @@
 ﻿# Тестирование
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../TESTING.md) · [Русский](TESTING.md)
 
 
-**Последнее обновление:** 2026-05-25  
-**Ветка:** `master` (admin UI: live stats, игровой чат, скрытая консоль)
+**Последнее обновление:** 2026-05-30
+**Ветка:** `main` (локальный host manager / будущий host agent)
 
 ## Предварительные условия
 
@@ -33,11 +33,17 @@ node --test tests/test_server_status.mjs
 | Watcher | `tests/test_server_rpt_watcher.py` | фазы, маркер, FPS, lazy attach, … |
 | Chat | `tests/test_server_chat_watcher.py` | парс ExpLog, history, tail |
 | Live stats | `tests/test_live_stats.py` | FPS, maxPlayers, parse_players |
-| ServerManager | `tests/test_server_mgr_rpt.py` | begin/end session, hide console (STARTUPINFO) |
+| ServerManager | `tests/test_server_mgr_rpt.py` | begin/end session, hide console, cleanup failed-start, безопасный restart |
 | API/WS | `tests/test_api_rpt.py`, `tests/test_api_chat.py` | RPT/READY, chat/say |
+| Validation | `tests/test_api_validation.py` | отклонение битых settings/server payload без частичной записи |
+| Static/UI routing | `tests/test_main_static.py` | блокировка path traversal, сохранение SPA fallback |
+| Scheduler locks | `tests/test_scheduler_locks.py` | shared mod update уважает существующие lock-и и корректно снимает только свои |
+| Runtime paths | `tests/test_runtime_paths.py` | frozen EXE пишет data-кэш рядом с внешней установкой |
 | UI | `tests/test_server_status.mjs` | STOPPED/STARTING/READY, фильтр WEAPON |
 
-**Последний прогон (2026-05-25):** `pytest` — 56+ passed; `node --test tests/test_server_status.mjs` — 9 passed.
+**Последний прогон (2026-05-30):** `pytest` — 80 passed; `node --test tests/test_server_status.mjs` — 10 passed.
+
+**CI:** GitHub Actions гоняет и `pytest`, и `node --test tests/test_server_status.mjs`.
 
 **Reference (2026-05-25, ручная проверка):** OK — live stats (FPS, ники игроков), игровой чат (ExpLog + say + planned restart T-5/T-10), проверка модов Steam API, скрытая консоль.
 
@@ -305,8 +311,8 @@ test_system.bat
 | T7c Live stats / ники | ✅ | ref 2026-05-25 |
 | T7b Log без моргания | ✅ | ref 2026-05-25 |
 | Mod check Steam API | ✅ | ref 2026-05-25 |
-| pytest RPT/chat/stats | ✅ | 56+ passed, 2026-05-25 |
-| node server_status | ✅ | 9 passed, 2026-05-25 |
+| pytest RPT/chat/stats | ✅ | 80 passed, 2026-05-30 |
+| node server_status | ✅ | 10 passed, 2026-05-30 |
 
 ## Логи
 

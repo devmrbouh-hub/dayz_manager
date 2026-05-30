@@ -1,6 +1,6 @@
 ﻿# Roadmap — фаза 2 (admin UI)
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../ROADMAP.md) · [Русский](ROADMAP.md)
 
 
 Фаза 1 (стабилизация) и фаза 2 (admin UI) влиты в **`main`** — см. [CHANGELOG.md](CHANGELOG.md).  

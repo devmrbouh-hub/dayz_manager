@@ -20,6 +20,10 @@ DayZManager.exe (or python src/main.py)
 └── RCON — say, shutdown
 ```
 
+## Trust model
+
+DayZ Manager is currently a **host-local admin tool**. Treat the built-in UI/API as trusted-host or private-LAN access, not as a public internet panel. Hooks run local Python files and therefore are equivalent to trusted code execution by the operator.
+
 ## WatchDog
 
 Interval: `settings.watchdog_interval` (default 10 s).
@@ -39,12 +43,12 @@ File `SERVER_LOCK` in server directory (`servers[].path`).
 
 | Event | Lock |
 |-------|------|
-| Start of restart / mod-update / prepare | Created |
+| Start of restart / mod-update / prepare | Created with operation context |
 | Successful start | Released after running confirmed (`settings.start_confirm_timeout`, default 90 s) |
 | Mod-update group | Held until all `start_server` in group |
 | WatchDog | Skips server with lock |
 
-If lock stuck after failure: delete `SERVER_LOCK` manually when sure DayZ and SteamCMD are idle.
+Shared mod-update now acquires only its own locks and does not remove pre-existing foreign locks. If lock is stuck after crash/power loss: delete `SERVER_LOCK` manually when sure DayZ and SteamCMD are idle.
 
 ## Starting a server
 
@@ -59,6 +63,7 @@ POST /api/servers/{id}/start
 ```
 
 On failed start `.stopped` is cleared so WatchDog can retry.
+If the process was spawned but never reached confirmed `running`, the manager now terminates that child process, clears `server.pid`, and ends temporary watcher sessions before returning failure.
 
 ## Mod updates
 
@@ -162,6 +167,7 @@ Cards sync via `syncServers()`: new — `createServerCard`, existing — `update
 | `afterStop` | After stop |
 
 In EXE, hook base path is next to `DayZManager.exe` (`sys.executable`).
+Only hook files inside that installation directory are executed; paths outside the base directory are skipped.
 
 Example: `hooks/before_start.py` → `run(server_config)`.
 
@@ -173,8 +179,8 @@ Module `src/notifications/discord_bot.py` exists but is **not wired** in `main.p
 
 | Path | Purpose |
 |------|---------|
-| `data/mod_versions.json` | Workshop version cache |
-| `data/mod_hashes.json` | Legacy/auxiliary cache |
+| `data/mod_versions.json` | Workshop version cache (next to EXE in frozen build) |
+| `data/mod_hashes.json` | Legacy/auxiliary cache (next to EXE in frozen build) |
 | `logs/manager.log` | Manager log |
 | `{server}/server.pid` | Process PID |
 | `{server}/.stopped` | Block auto-start |

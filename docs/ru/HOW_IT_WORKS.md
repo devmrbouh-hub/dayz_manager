@@ -1,6 +1,6 @@
 ﻿# Как устроен DayZ Manager
 
-**Languages:** [English](../) · [Русский]()
+**Languages:** [English](../HOW_IT_WORKS.md) · [Русский](HOW_IT_WORKS.md)
 
 
 ## Общая схема
@@ -21,6 +21,10 @@ DayZManager.exe (или python src/main.py)
 └── RCON — say, shutdown
 ```
 
+## Trust model
+
+Сейчас DayZ Manager рассчитан на **локальное администрирование на хосте**. Встроенный UI/API следует считать интерфейсом для доверенного хоста или приватной сети, а не публичной панелью для интернета. Hooks запускают локальные Python-файлы и по сути равны исполнению доверенного кода оператором.
+
 ## WatchDog
 
 Интервал: `settings.watchdog_interval` (по умолчанию 10 с).
@@ -40,12 +44,12 @@ DayZManager.exe (или python src/main.py)
 
 | Событие | Lock |
 |---------|------|
-| Начало restart / mod-update / prepare | Создаётся |
+| Начало restart / mod-update / prepare | Создаётся с контекстом операции |
 | Успешный start | Снимается после подтверждения running (`settings.start_confirm_timeout`, по умолчанию 90 с) |
 | Mod-update группы | Держится до всех `start_server` в группе |
 | WatchDog | Не трогает сервер с lock |
 
-При зависшем lock после сбоя: удалить `SERVER_LOCK` вручную, когда убедились, что DayZ не запускается и нет активного SteamCMD.
+Групповой mod-update теперь создаёт только свои lock-файлы и не удаляет уже существующие чужие lock-и. При зависшем lock после crash/power loss: удалить `SERVER_LOCK` вручную, когда убедились, что DayZ не запускается и нет активного SteamCMD.
 
 ## Запуск сервера
 
@@ -59,7 +63,7 @@ POST /api/servers/{id}/start
   → release_lock
 ```
 
-При неудачном старте `.stopped` снимается, чтобы WatchDog мог повторить попытку.
+При неудачном старте `.stopped` снимается, чтобы WatchDog мог повторить попытку. Если процесс успел стартовать, но не дошёл до подтверждённого `running`, менеджер завершает этот процесс, очищает `server.pid` и завершает временные watcher-сессии.
 
 ## Обновление модов
 
@@ -162,7 +166,7 @@ POST /api/servers/{id}/start
 | `beforeStart` | Перед spawn процесса |
 | `afterStop` | После остановки |
 
-В EXE базовый каталог для путей хуков — рядом с `DayZManager.exe` (`sys.executable`).
+В EXE базовый каталог для путей хуков — рядом с `DayZManager.exe` (`sys.executable`). Выполняются только hook-файлы внутри этого каталога установки; пути наружу пропускаются.
 
 Пример: `hooks/before_start.py` → функция `run(server_config)`.
 
@@ -174,8 +178,8 @@ POST /api/servers/{id}/start
 
 | Путь | Назначение |
 |------|------------|
-| `data/mod_versions.json` | Кэш версий Workshop |
-| `data/mod_hashes.json` | Legacy/вспомогательный кэш |
+| `data/mod_versions.json` | Кэш версий Workshop (в frozen-сборке рядом с EXE) |
+| `data/mod_hashes.json` | Legacy/вспомогательный кэш (в frozen-сборке рядом с EXE) |
 | `logs/manager.log` | Лог менеджера |
 | `{server}/server.pid` | PID процесса |
 | `{server}/.stopped` | Запрет автозапуска |

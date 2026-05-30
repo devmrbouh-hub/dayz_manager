@@ -36,34 +36,101 @@ class ServerManager:
     def _lock_path(self, server_dir: Path) -> Path:
         return server_dir / LOCK_FILE_NAME
 
+    def _lock_context(self, server: dict) -> str:
+        lock_file = self._lock_path(self._server_dir(server))
+        if not lock_file.exists():
+            return ""
+        try:
+            reason = lock_file.read_text(encoding='utf-8').strip()
+        except OSError:
+            return ""
+        return f" ({reason})" if reason else ""
+
     def is_locked(self, server: dict) -> bool:
         return self._lock_path(self._server_dir(server)).exists()
 
-    def acquire_lock(self, server: dict) -> bool:
+    def acquire_lock(self, server: dict, reason: str = "busy") -> bool:
         """Создать SERVER_LOCK. False если уже заблокирован."""
         lock_file = self._lock_path(self._server_dir(server))
-        if lock_file.exists():
+        try:
+            with lock_file.open('x', encoding='utf-8') as f:
+                f.write(reason)
+        except FileExistsError:
             return False
-        lock_file.touch()
+        except OSError as e:
+            self._log(f"Failed to create SERVER_LOCK for {server['id']}: {e}", "ERROR")
+            return False
         return True
 
     def release_lock(self, server: dict):
         lock_file = self._lock_path(self._server_dir(server))
-        if lock_file.exists():
-            lock_file.unlink()
+        try:
+            lock_file.unlink(missing_ok=True)
+        except OSError as e:
+            self._log(f"Failed to release SERVER_LOCK for {server['id']}: {e}", "ERROR")
 
     def _clear_stopped_flag(self, server_dir: Path):
         stopped_flag = server_dir / ".stopped"
         if stopped_flag.exists():
             stopped_flag.unlink()
 
+    def _clear_pid_file(self, server_dir: Path):
+        pid_file = server_dir / "server.pid"
+        pid_file.unlink(missing_ok=True)
+
     def _set_manual_stop_flag(self, server_dir: Path):
         """Пометить сервер как остановленный вручную/контролируемо."""
-        pid_file = server_dir / "server.pid"
-        if pid_file.exists():
-            pid_file.unlink()
+        self._clear_pid_file(server_dir)
         stopped_flag = server_dir / ".stopped"
         stopped_flag.touch()
+
+    def _end_server_sessions(self, server_id: str):
+        if self.rpt_watcher:
+            self.rpt_watcher.end_session(server_id)
+        if self.chat_watcher:
+            self.chat_watcher.end_session(server_id)
+
+    def _terminate_process(self, process, server_id: str):
+        """Best-effort termination for a process spawned during startup."""
+        if process is None:
+            return
+
+        try:
+            poll = getattr(process, "poll", None)
+            if callable(poll) and poll() is not None:
+                return
+
+            terminate = getattr(process, "terminate", None)
+            if callable(terminate):
+                terminate()
+
+            wait = getattr(process, "wait", None)
+            if callable(wait):
+                try:
+                    wait(timeout=5)
+                    self._log(f"Server {server_id} startup process terminated after failed start", "WARN")
+                    return
+                except subprocess.TimeoutExpired:
+                    pass
+
+            kill = getattr(process, "kill", None)
+            if callable(kill):
+                kill()
+                if callable(wait):
+                    wait(timeout=5)
+                self._log(f"Server {server_id} startup process killed after failed start", "WARN")
+        except Exception as e:
+            self._log(f"Failed to terminate startup process for {server_id}: {e}", "ERROR")
+
+    def _cleanup_failed_start(self, server: dict, process=None, clear_stopped: bool = True):
+        """Clear transient state after a failed or interrupted startup."""
+        server_id = server['id']
+        server_dir = self._server_dir(server)
+        self._terminate_process(process, server_id)
+        self._clear_pid_file(server_dir)
+        self._end_server_sessions(server_id)
+        if clear_stopped:
+            self._clear_stopped_flag(server_dir)
 
     def _expected_exe_path(self, server: dict) -> Path:
         return self._server_dir(server) / server['exe']
@@ -279,8 +346,11 @@ class ServerManager:
 
     def prepare_server_for_start(self, server: dict) -> tuple[bool, str]:
         """Перед стартом: lock, проверка модов, синхронизация."""
-        if not self.acquire_lock(server):
-            self._log(f"Server {server['id']} is locked, cannot prepare for start", "WARN")
+        if not self.acquire_lock(server, reason="prepare_server_for_start"):
+            self._log(
+                f"Server {server['id']} is locked, cannot prepare for start{self._lock_context(server)}",
+                "WARN"
+            )
             return False, ""
 
         try:
@@ -333,12 +403,19 @@ class ServerManager:
             return False
 
         lock_acquired_here = False
+        process = None
         if not lock_already_held:
             if self.is_locked(server):
-                self._log(f"Server is locked, cannot start", "WARN")
+                self._log(
+                    f"Server {server_id} is locked, cannot start{self._lock_context(server)}",
+                    "WARN"
+                )
                 return False
-            if not self.acquire_lock(server):
-                self._log(f"Server is locked, cannot start", "WARN")
+            if not self.acquire_lock(server, reason="start_server"):
+                self._log(
+                    f"Server {server_id} is locked, cannot start{self._lock_context(server)}",
+                    "WARN"
+                )
                 return False
             lock_acquired_here = True
 
@@ -419,22 +496,12 @@ class ServerManager:
                 return True
 
             self._log(f"Server {server_id} failed to start within timeout", "ERROR")
-            if self.rpt_watcher:
-                self.rpt_watcher.end_session(server_id)
-            if self.chat_watcher:
-                self.chat_watcher.end_session(server_id)
-            if clear_stopped:
-                self._clear_stopped_flag(server_dir)
+            self._cleanup_failed_start(server, process=process, clear_stopped=clear_stopped)
             return False
 
         except Exception as e:
             self._log(f"Failed to start {server_id}: {e}", "ERROR")
-            if self.rpt_watcher:
-                self.rpt_watcher.end_session(server_id)
-            if self.chat_watcher:
-                self.chat_watcher.end_session(server_id)
-            if clear_stopped:
-                self._clear_stopped_flag(server_dir)
+            self._cleanup_failed_start(server, process=process, clear_stopped=clear_stopped)
             return False
         finally:
             if lock_acquired_here:
@@ -455,10 +522,7 @@ class ServerManager:
         server_dir = self._server_dir(server)
 
         def _finish_stop() -> bool:
-            if self.rpt_watcher:
-                self.rpt_watcher.end_session(server_id)
-            if self.chat_watcher:
-                self.chat_watcher.end_session(server_id)
+            self._end_server_sessions(server_id)
             return True
 
         if not force:
@@ -511,8 +575,18 @@ class ServerManager:
         server_id = server['id']
         self._log(f"Restarting {server_id}...", "INFO")
 
-        self.stop_server(server)
+        stop_ok = self.stop_server(server)
+        if not stop_ok:
+            self._log(f"Graceful restart stop failed for {server_id}, trying force stop", "WARN")
+            stop_ok = self.stop_server(server, force=True)
+        if not stop_ok:
+            self._log(f"Restart aborted for {server_id}: stop failed", "ERROR")
+            return False
+
         time.sleep(5)
+        if self.is_running(server):
+            self._log(f"Restart aborted for {server_id}: server is still running after stop", "ERROR")
+            return False
 
         return self.start_server(server, mods_string, clear_stopped=True)
 
@@ -617,8 +691,11 @@ class ServerManager:
             hooks.execute_hook(server, 'afterStop')
             hooks.execute_hook(server, 'beforeStart')
 
-            if not self.acquire_lock(server):
-                self._log(f"[WatchDog] {server_id} start skipped: server is locked", "WARN")
+            if not self.acquire_lock(server, reason="watchdog_restart"):
+                self._log(
+                    f"[WatchDog] {server_id} start skipped: server is locked{self._lock_context(server)}",
+                    "WARN"
+                )
                 return
 
             try:

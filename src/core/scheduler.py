@@ -3,7 +3,6 @@
 import asyncio
 import functools
 from datetime import datetime
-from pathlib import Path
 from typing import Optional, Set
 
 from src.core.planned_restart import (
@@ -559,9 +558,25 @@ class Scheduler:
             self._log(f"SteamCMD not installed, skipping mod check for {group_label}", "WARN")
             return
 
-        update_locks = [Path(server['path']) / "SERVER_LOCK" for server in servers]
-        for update_lock in update_locks:
-            update_lock.touch()
+        locked_servers = [server['id'] for server in servers if self.server_mgr.is_locked(server)]
+        if locked_servers:
+            self._log(
+                f"Skipping shared mod update for {group_label}: SERVER_LOCK active on {', '.join(locked_servers)}",
+                "WARN"
+            )
+            return
+
+        locked_for_update = []
+        for server in servers:
+            if not self.server_mgr.acquire_lock(server, reason="shared_mod_update"):
+                self._log(
+                    f"Skipping shared mod update for {group_label}: failed to acquire SERVER_LOCK for {server['id']}",
+                    "WARN"
+                )
+                for locked_server in locked_for_update:
+                    self.server_mgr.release_lock(locked_server)
+                return
+            locked_for_update.append(server)
 
         try:
             server_was_running = {}
@@ -717,10 +732,6 @@ class Scheduler:
                     f"Failed to download updated mods for {group_label}: {', '.join(failed_downloads)}",
                     "ERROR"
                 )
-                for update_lock in update_locks:
-                    if update_lock.exists():
-                        update_lock.unlink()
-
                 for server in servers:
                     server_id = server['id']
                     if not server_was_running.get(server_id):
@@ -777,9 +788,8 @@ class Scheduler:
                 else:
                     self._log(f"Mods updated for offline server {server_id}", "INFO")
         finally:
-            for update_lock in update_locks:
-                if update_lock.exists():
-                    update_lock.unlink()
+            for locked_server in locked_for_update:
+                self.server_mgr.release_lock(locked_server)
 
     async def _log_clean_job(self):
         """Очистить старые логи"""

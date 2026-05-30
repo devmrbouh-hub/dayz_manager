@@ -2,8 +2,8 @@
 
 **Languages:** [English](TESTING.md) · [Русский](ru/TESTING.md)
 
-**Last updated:** 2026-05-25  
-**Branch:** `master` (admin UI: live stats, in-game chat, hidden console)
+**Last updated:** 2026-05-30
+**Branch:** `main` (local host manager / future host agent)
 
 Use your `servers[].id` in API paths (examples use `server1`).
 
@@ -34,11 +34,17 @@ node --test tests/test_server_status.mjs
 | Watcher | `tests/test_server_rpt_watcher.py` | phases, marker, FPS, lazy attach, … |
 | Chat | `tests/test_server_chat_watcher.py` | ExpLog parse, history, tail |
 | Live stats | `tests/test_live_stats.py` | FPS, maxPlayers, parse_players |
-| ServerManager | `tests/test_server_mgr_rpt.py` | session begin/end, hide console |
+| ServerManager | `tests/test_server_mgr_rpt.py` | session begin/end, hide console, failed-start cleanup, safe restart |
 | API/WS | `tests/test_api_rpt.py`, `tests/test_api_chat.py` | RPT/READY, chat/say |
+| Validation | `tests/test_api_validation.py` | invalid settings/server payloads rejected without partial writes |
+| Static/UI routing | `tests/test_main_static.py` | path traversal blocked, SPA fallback preserved |
+| Scheduler locks | `tests/test_scheduler_locks.py` | shared mod update respects existing locks and releases owned locks safely |
+| Runtime paths | `tests/test_runtime_paths.py` | frozen EXE writes data cache next to external install |
 | UI | `tests/test_server_status.mjs` | STOPPED/STARTING/READY, WEAPON filter |
 
-**Last run (2026-05-25):** `pytest` — 56+ passed; `node --test tests/test_server_status.mjs` — 9 passed.
+**Last run (2026-05-30):** `pytest` — 80 passed; `node --test tests/test_server_status.mjs` — 10 passed.
+
+**CI:** GitHub Actions runs both `pytest` and `node --test tests/test_server_status.mjs`.
 
 **Reference (2026-05-25, manual):** OK — live stats, in-game chat, Steam mod check, hidden console.
 
@@ -303,8 +309,8 @@ test_system.bat
 | T7c Live stats | Done | ref 2026-05-25 |
 | Log no flicker | Done | ref 2026-05-25 |
 | Mod check Steam API | Done | ref 2026-05-25 |
-| pytest RPT/chat/stats | Done | 56+ passed |
-| node server_status | Done | 9 passed |
+| pytest RPT/chat/stats | Done | 80 passed, 2026-05-30 |
+| node server_status | Done | 10 passed, 2026-05-30 |
 
 ## Logs
 

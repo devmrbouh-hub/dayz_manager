@@ -4,6 +4,8 @@
 
 Unified DayZ server manager for Windows: web UI, REST API, WatchDog, SteamCMD mod updates, planned and CRON restarts. **Any map and mod set** — configured only via `config.json` (server path, `mod_list.txt`, launch args). Multiple instances on one host.
 
+Current role: **local host manager** on the game machine. In the future this codebase may act as a **host agent** behind a separate cloud/admin layer, but this repository does **not** provide a public internet-ready control panel today.
+
 **Docs:** [docs/INDEX.md](docs/INDEX.md) · **License:** [MIT](LICENSE) · **Downloads:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases) (ready-made EXE, no build)
 
 > **GitHub About (description):** `DayZ dedicated server manager for Windows — web UI, multi-server, SteamCMD mods, RCON, WatchDog, planned restarts`
@@ -45,6 +47,13 @@ Compact server list — several instances on one host:
 Expanded server card — restart settings, RPT log, in-game chat:
 
 ![DayZ Manager — expanded server card](docs/images/ui-server-expanded.png)
+
+## Access model
+
+- Intended for a **trusted local host** or private admin network.
+- Default operator flow: open `http://127.0.0.1:8000` on the same machine and enter `auth.api_key`.
+- Do **not** treat the built-in UI/API as a public internet panel. For remote/public administration use a separate gateway/cloud layer in front of a future agent.
+- Hooks execute local Python code from the installation directory and should be treated as trusted admin automation.
 
 ## Quick start
 
@@ -88,7 +97,7 @@ Steam password via `DAYZ_STEAM_USERNAME` / `DAYZ_STEAM_PASSWORD` or `steam.*` fi
 python src/main.py
 ```
 
-Open **http://127.0.0.1:8000** → enter the same `auth.api_key` in the API Key field (stored in browser).
+Open **http://127.0.0.1:8000** → enter the same `auth.api_key` in the API Key field (stored in browser for this local UI).
 
 ### 5. Verify
 

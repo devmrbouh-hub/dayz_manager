@@ -46,6 +46,14 @@ def enrich_server_status(components: dict, status: dict) -> dict:
     return enriched
 
 
+async def read_json_object(request: Request, *, detail: str) -> dict:
+    """Read a request body and ensure it is a JSON object."""
+    body = await request.json()
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail=detail)
+    return body
+
+
 # ============================================================
 # Серверы
 # ============================================================
@@ -218,7 +226,7 @@ async def say_in_game_chat(server_id: str, request: Request, _: bool = Depends(r
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
 
-    body = await request.json()
+    body = await read_json_object(request, detail="JSON body must be an object")
     message = (body.get("message") or "").strip()
     if not message:
         raise HTTPException(status_code=400, detail="message is required")
@@ -254,7 +262,7 @@ async def say_in_game_chat(server_id: str, request: Request, _: bool = Depends(r
 async def add_server(request: Request, _: bool = Depends(require_api_key)):
     """Добавить сервер"""
     components = get_components(request)
-    body = await request.json()
+    body = await read_json_object(request, detail="Server payload must be an object")
 
     try:
         components['config'].add_server(body)
@@ -267,13 +275,16 @@ async def add_server(request: Request, _: bool = Depends(require_api_key)):
 async def update_server(server_id: str, request: Request, _: bool = Depends(require_api_key)):
     """Обновить настройки сервера"""
     components = get_components(request)
-    body = await request.json()
+    body = await read_json_object(request, detail="Server payload must be an object")
+
+    if not components['config'].get_server(server_id):
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
 
     try:
         components['config'].update_server(server_id, body)
         return {"message": f"Server '{server_id}' updated"}
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.delete("/api/servers/{server_id}")
@@ -380,14 +391,23 @@ SETTINGS_KEY_PATHS = {
 async def update_settings(request: Request, _: bool = Depends(require_api_key)):
     """Обновить настройки"""
     components = get_components(request)
-    body = await request.json()
+    body = await read_json_object(request, detail="Settings payload must be an object")
 
-    updated = []
+    validated = []
+    config = components['config']
     for key, value in body.items():
         path = SETTINGS_KEY_PATHS.get(key)
         if not path:
             continue
-        components['config'].set(path, value)
+        try:
+            config.validate_setting_value(path, value)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        validated.append((key, path, value))
+
+    updated = []
+    for key, path, value in validated:
+        config.set(path, value)
         updated.append(key)
 
     if 'mod_check_interval' in updated:
