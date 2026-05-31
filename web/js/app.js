@@ -509,6 +509,9 @@ function createServerCard(server) {
                 <div class="server-card-metrics">
                     <span class="metric-pill"><span data-i18n="card.fps">FPS</span>: <strong id="server-fps-${sid}">${formatServerFps(server)}</strong></span>
                     <span class="metric-pill"><span data-i18n="card.players">Players</span>: <strong id="server-players-count-${sid}">${formatPlayersCount(server)}</strong></span>
+                    <button type="button" class="btn btn-secondary btn-small btn-open-folder"
+                        data-i18n="card.openFolder"
+                        onclick="event.stopPropagation(); openServerFolder('${sid}')">Open folder</button>
                 </div>
             </div>
             <div class="server-actions-compact">
@@ -528,12 +531,6 @@ function createServerCard(server) {
                 <div class="server-card-meta server-status">
                     ${server.pid ? `<span class="pid-badge">PID: ${server.pid}</span>` : ''}
                     ${server.current_rpt ? `<span class="rpt-badge">${escapeHtml(server.current_rpt)}</span>` : ''}
-                </div>
-
-                <div class="server-folder-action">
-                    <button type="button" class="btn btn-secondary btn-small"
-                        data-i18n="card.openFolder"
-                        onclick="openServerFolder('${sid}')">Open folder</button>
                 </div>
 
                 <div class="server-restart-panel">

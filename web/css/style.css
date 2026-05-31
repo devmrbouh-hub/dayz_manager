@@ -965,6 +965,8 @@ section {
     cursor: pointer;
     user-select: none;
     list-style: none;
+    justify-content: flex-start;
+    gap: 8px;
 }
 
 .manager-logs-details > summary.section-header::-webkit-details-marker {
@@ -996,8 +998,10 @@ section {
     margin-bottom: 10px;
 }
 
-.server-folder-action {
-    margin: 8px 0 12px;
+.btn-open-folder {
+    flex-shrink: 0;
+    padding: 2px 10px;
+    font-size: 11px;
 }
 
 .logs-container {
