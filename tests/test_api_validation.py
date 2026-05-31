@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -141,3 +141,60 @@ def test_update_server_cannot_change_id(tmp_path):
 
     assert resp.status_code == 400
     assert config.get_server(server["id"]) is not None
+
+
+def test_open_folder_success(tmp_path):
+    server = _valid_server(tmp_path)
+    config_path = tmp_path / "config.json"
+    _write_config(config_path, server)
+    config = Config(str(config_path))
+    config.load()
+    client = _build_client(config)
+
+    with patch("src.api.routes.os.startfile") as startfile:
+        resp = client.post(f"/api/servers/{server['id']}/open-folder", headers=_headers())
+
+    assert resp.status_code == 200
+    assert resp.json()["message"] == f"Opened folder for server '{server['id']}'"
+    startfile.assert_called_once_with(str(Path(server["path"]).resolve()))
+
+
+def test_open_folder_not_found(tmp_path):
+    server = _valid_server(tmp_path)
+    config_path = tmp_path / "config.json"
+    _write_config(config_path, server)
+    config = Config(str(config_path))
+    config.load()
+    client = _build_client(config)
+
+    resp = client.post("/api/servers/unknown/open-folder", headers=_headers())
+
+    assert resp.status_code == 404
+
+
+def test_open_folder_missing_path(tmp_path):
+    server = _valid_server(tmp_path)
+    server["path"] = str(tmp_path / "missing-dir")
+    config_path = tmp_path / "config.json"
+    _write_config(config_path, server)
+    config = Config(str(config_path))
+    config.load()
+    client = _build_client(config)
+
+    resp = client.post(f"/api/servers/{server['id']}/open-folder", headers=_headers())
+
+    assert resp.status_code == 404
+    assert "does not exist" in resp.json()["detail"]
+
+
+def test_open_folder_requires_api_key(tmp_path):
+    server = _valid_server(tmp_path)
+    config_path = tmp_path / "config.json"
+    _write_config(config_path, server)
+    config = Config(str(config_path))
+    config.load()
+    client = _build_client(config)
+
+    resp = client.post(f"/api/servers/{server['id']}/open-folder")
+
+    assert resp.status_code == 401

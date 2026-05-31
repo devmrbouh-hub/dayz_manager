@@ -961,6 +961,45 @@ section {
 }
 
 /* Logs */
+.manager-logs-details > summary.section-header {
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+}
+
+.manager-logs-details > summary.section-header::-webkit-details-marker {
+    display: none;
+}
+
+.manager-logs-details > summary.section-header::before {
+    content: '▸';
+    font-size: 12px;
+    margin-right: 8px;
+    transition: transform var(--transition-fast);
+}
+
+.manager-logs-details[open] > summary.section-header::before {
+    transform: rotate(90deg);
+}
+
+.manager-logs-details:not([open]) > summary.section-header {
+    margin-bottom: 0;
+}
+
+.manager-logs-details[open] > summary.section-header {
+    margin-bottom: 15px;
+}
+
+.logs-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+.server-folder-action {
+    margin: 8px 0 12px;
+}
+
 .logs-container {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);

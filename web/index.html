@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DayZ Server Manager</title>
-    <link rel="stylesheet" href="css/style.css?v=3">
+    <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
     <div class="container">
@@ -41,11 +41,17 @@
             </section>
 
             <section class="logs">
-                <div class="section-header">
-                    <h2 data-i18n="logs.title">Live Logs</h2>
-                    <button class="btn btn-secondary" onclick="clearLogs()" data-i18n="logs.clear">Clear</button>
-                </div>
-                <div id="logs-container" class="logs-container"></div>
+                <details class="manager-logs-details" id="manager-logs-details">
+                    <summary class="section-header">
+                        <h2 data-i18n="logs.title">Live Logs</h2>
+                    </summary>
+                    <div class="logs-section-body">
+                        <div class="logs-toolbar">
+                            <button class="btn btn-secondary" onclick="clearLogs()" data-i18n="logs.clear">Clear</button>
+                        </div>
+                        <div id="logs-container" class="logs-container"></div>
+                    </div>
+                </details>
             </section>
         </main>
     </div>
@@ -89,8 +95,8 @@
         </div>
     </div>
 
-    <script src="js/i18n.js?v=1"></script>
+    <script src="js/i18n.js?v=2"></script>
     <script src="js/server_status.js?v=2"></script>
-    <script src="js/app.js?v=13"></script>
+    <script src="js/app.js?v=14"></script>
 </body>
 </html>

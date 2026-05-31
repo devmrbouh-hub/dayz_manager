@@ -24,6 +24,7 @@ GET — без ключа. Роли `auth.users` в REST **не использу
 | POST | `/api/servers/{id}/start` | Запуск |
 | POST | `/api/servers/{id}/stop` | Остановка |
 | POST | `/api/servers/{id}/restart` | Перезапуск |
+| POST | `/api/servers/{id}/open-folder` | Открыть корневую папку сервера в Проводнике Windows |
 | POST | `/api/servers/{id}/rcon/test` | Проверка RCON (`players`) |
 | POST | `/api/servers` | Добавить сервер |
 | PUT | `/api/servers/{id}` | Обновить сервер (в т.ч. `planned_restart`) |

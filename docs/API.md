@@ -23,6 +23,7 @@ GET — no key. Roles in `auth.users` are **not used** in REST (reserved for fut
 | POST | `/api/servers/{id}/start` | Start |
 | POST | `/api/servers/{id}/stop` | Stop |
 | POST | `/api/servers/{id}/restart` | Restart |
+| POST | `/api/servers/{id}/open-folder` | Open server root folder in Windows Explorer |
 | POST | `/api/servers/{id}/rcon/test` | RCON test (`players`) |
 | POST | `/api/servers` | Add server |
 | PUT | `/api/servers/{id}` | Update server (incl. `planned_restart`) |

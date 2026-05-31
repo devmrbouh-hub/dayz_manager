@@ -530,6 +530,12 @@ function createServerCard(server) {
                     ${server.current_rpt ? `<span class="rpt-badge">${escapeHtml(server.current_rpt)}</span>` : ''}
                 </div>
 
+                <div class="server-folder-action">
+                    <button type="button" class="btn btn-secondary btn-small"
+                        data-i18n="card.openFolder"
+                        onclick="openServerFolder('${sid}')">Open folder</button>
+                </div>
+
                 <div class="server-restart-panel">
                     <div class="server-restart-header">
                         <h4 data-i18n="card.restartSection">Restart</h4>
@@ -1014,6 +1020,23 @@ async function startServer(serverId) {
         }
         pollServerUntilReady(serverId);
         showToast(t('toast.starting'), 'success', 3000);
+    } catch (error) {
+        showToast(t('toast.error', { detail: error.message }), 'error');
+    }
+}
+
+async function openServerFolder(serverId) {
+    try {
+        const response = await fetch(`${API_URL}/api/servers/${serverId}/open-folder`, {
+            method: 'POST',
+            headers: {
+                'X-API-Key': getApiKey()
+            }
+        });
+
+        if (!response.ok) {
+            showToast(t('toast.openFolderFail', { detail: await parseApiError(response) }), 'error');
+        }
     } catch (error) {
         showToast(t('toast.error', { detail: error.message }), 'error');
     }

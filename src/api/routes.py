@@ -1,5 +1,8 @@
 """REST API маршруты"""
 
+import os
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional
 
@@ -146,6 +149,30 @@ async def restart_server(server_id: str, request: Request, _: bool = Depends(req
         return {"message": f"Server '{server_id}' restarted"}
     else:
         raise HTTPException(status_code=500, detail=f"Failed to restart server '{server_id}'")
+
+
+@router.post("/api/servers/{server_id}/open-folder")
+async def open_server_folder(server_id: str, request: Request, _: bool = Depends(require_api_key)):
+    """Открыть корневую папку сервера в Проводнике Windows."""
+    components = get_components(request)
+    server = components['config'].get_server(server_id)
+
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
+
+    server_dir = Path(server['path']).resolve()
+    if not server_dir.is_dir():
+        raise HTTPException(
+            status_code=404,
+            detail=f"Server folder does not exist: {server_dir}"
+        )
+
+    try:
+        os.startfile(str(server_dir))
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to open folder: {exc}") from exc
+
+    return {"message": f"Opened folder for server '{server_id}'"}
 
 
 @router.get("/api/servers/{server_id}/logs/tail")

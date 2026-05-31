@@ -55,6 +55,7 @@ const STRINGS = {
         'card.gameChat': 'In-game chat',
         'card.chatPlaceholder': 'Message to all players…',
         'card.chatSend': 'Send',
+        'card.openFolder': 'Open folder',
         'status.stopped': 'STOPPED',
         'status.starting': 'STARTING',
         'status.ready': 'READY',
@@ -91,6 +92,7 @@ const STRINGS = {
         'toast.error': 'Error: {detail}',
         'toast.shutdown': 'Stopping manager and all servers…',
         'toast.shutdownFail': 'Shutdown failed: {detail}',
+        'toast.openFolderFail': 'Failed to open folder: {detail}',
     },
     ru: {
         'app.title': 'DayZ Server Manager',
@@ -145,6 +147,7 @@ const STRINGS = {
         'card.gameChat': 'Игровой чат',
         'card.chatPlaceholder': 'Сообщение всем игрокам…',
         'card.chatSend': 'Отправить',
+        'card.openFolder': 'Открыть папку',
         'status.stopped': 'ОСТАНОВЛЕН',
         'status.starting': 'ЗАПУСК',
         'status.ready': 'ГОТОВ',
@@ -181,6 +184,7 @@ const STRINGS = {
         'toast.error': 'Ошибка: {detail}',
         'toast.shutdown': 'Останавливаем менеджер и все серверы…',
         'toast.shutdownFail': 'Ошибка выключения: {detail}',
+        'toast.openFolderFail': 'Не удалось открыть папку: {detail}',
     },
 };
 
