@@ -13,6 +13,7 @@ from src.core.runtime_paths import get_runtime_data_file
 from src.utils.http import urlopen as http_urlopen
 
 MOD_VERSIONS_FILE = get_runtime_data_file('mod_versions.json')
+WORKSHOP_CACHE_PREFIX = 'w:'
 
 
 class SteamCMD:
@@ -29,6 +30,64 @@ class SteamCMD:
         self.auth_mode = (config.get('steam.auth_mode', 'session') or 'session').strip().lower()
         self.logger = logger
         self.mod_versions = self._load_mod_versions()
+
+    @staticmethod
+    def _workshop_cache_key(mod_id: str) -> str:
+        return f"{WORKSHOP_CACHE_PREFIX}{mod_id}"
+
+    def _migrate_mod_versions(self, raw: dict) -> dict:
+        """Collapse per-server keys onto one Workshop item id (shared content folder)."""
+        merged: dict[str, int] = {}
+
+        for key, value in raw.items():
+            try:
+                timestamp = int(value)
+            except (TypeError, ValueError):
+                continue
+
+            mod_id = None
+            if isinstance(key, str) and key.startswith(WORKSHOP_CACHE_PREFIX):
+                candidate = key[len(WORKSHOP_CACHE_PREFIX):]
+                if candidate.isdigit():
+                    mod_id = candidate
+            elif isinstance(key, str) and ':' in key:
+                candidate = key.rsplit(':', 1)[-1]
+                if candidate.isdigit():
+                    mod_id = candidate
+
+            if mod_id:
+                merged[mod_id] = max(merged.get(mod_id, 0), timestamp)
+
+        return {self._workshop_cache_key(mod_id): ts for mod_id, ts in merged.items()}
+
+    def _get_cached_mod_time(self, mod_id: str) -> Optional[int]:
+        mod_id = str(mod_id or '').strip()
+        if not mod_id.isdigit():
+            return None
+        cached = self.mod_versions.get(self._workshop_cache_key(mod_id))
+        if cached is None:
+            return None
+        try:
+            return int(cached)
+        except (TypeError, ValueError):
+            return None
+
+    def _set_cached_mod_time(self, mod_id: str, remote_time: int):
+        mod_id = str(mod_id or '').strip()
+        if not mod_id.isdigit():
+            return
+        self.mod_versions[self._workshop_cache_key(mod_id)] = int(remote_time)
+        self._save_mod_versions()
+
+    def is_mod_present_locally(self, mod_id: str, workshop_id: int = 221100) -> bool:
+        """True if Workshop content folder exists and is non-empty."""
+        mod_path = self.get_mod_path(mod_id, workshop_id)
+        if not mod_path.is_dir():
+            return False
+        try:
+            return any(mod_path.iterdir())
+        except OSError:
+            return False
 
     def _log(self, message: str, level: str = "INFO"):
         if self.logger:
@@ -105,7 +164,9 @@ class SteamCMD:
         if MOD_VERSIONS_FILE.exists():
             try:
                 with MOD_VERSIONS_FILE.open('r', encoding='utf-8') as f:
-                    return json.load(f)
+                    raw = json.load(f)
+                if isinstance(raw, dict) and raw:
+                    return self._migrate_mod_versions(raw)
             except Exception:
                 return {}
         return {}
@@ -150,7 +211,6 @@ class SteamCMD:
         сравнивает remote time_updated из Steam API с локальным кэшем.
         """
         label = f"{mod_name} ({mod_id})" if mod_name else str(mod_id)
-        cache_key = f"{server_id}:{mod_id}"
 
         try:
             remote_time = self._get_remote_mod_update_time(mod_id)
@@ -158,16 +218,29 @@ class SteamCMD:
                 self._log(f"Workshop details unavailable for {label}", "DEBUG")
                 return False
 
-            cached_time = self.mod_versions.get(cache_key)
+            cached_time = self._get_cached_mod_time(mod_id)
             if cached_time is None:
+                if self.is_mod_present_locally(mod_id):
+                    self._set_cached_mod_time(mod_id, remote_time)
+                    self._log(
+                        f"Workshop version cached for {label} from existing local content",
+                        "DEBUG"
+                    )
+                    return False
+
                 # Первая инициализация кэша: не считать это обновлением,
                 # чтобы не рестартовать сервер сразу на первом цикле.
-                self.mod_versions[cache_key] = remote_time
-                self._save_mod_versions()
+                self._set_cached_mod_time(mod_id, remote_time)
                 self._log(f"Workshop version cached for {label}", "DEBUG")
                 return False
 
             if int(remote_time) > int(cached_time):
+                if self.is_mod_present_locally(mod_id):
+                    self._log(
+                        f"Workshop metadata newer for {label}, but local content exists; "
+                        f"will refresh via SteamCMD if needed",
+                        "DEBUG"
+                    )
                 self._log(f"Workshop update detected for {label}", "INFO")
                 return True
 
@@ -177,13 +250,13 @@ class SteamCMD:
             return False
 
     def mark_mod_version_synced(self, server_id: str, mod_id: str):
-        """Обновить локальный кэш версии после успешной синхронизации."""
+        """Обновить локальный кэш версии после успешной синхронизации (общий на все серверы)."""
+        del server_id  # Workshop content is shared; cache is keyed by mod id only.
         try:
             remote_time = self._get_remote_mod_update_time(mod_id)
             if remote_time is None:
                 return
-            self.mod_versions[f"{server_id}:{mod_id}"] = int(remote_time)
-            self._save_mod_versions()
+            self._set_cached_mod_time(mod_id, remote_time)
         except Exception as e:
             self._log(f"Failed to update mod version cache for {mod_id}: {e}", "WARN")
 
@@ -241,9 +314,24 @@ class SteamCMD:
             return False
 
         label = f"{mod_name} ({mod_id})" if mod_name else mod_id
-        self._log(f"Downloading mod {label}...", "INFO")
 
         try:
+            remote_time = self._get_remote_mod_update_time(mod_id)
+            cached_time = self._get_cached_mod_time(mod_id)
+            if (
+                remote_time is not None
+                and cached_time is not None
+                and int(remote_time) <= int(cached_time)
+                and self.is_mod_present_locally(mod_id, workshop_id)
+            ):
+                self._log(
+                    f"Mod {label} already present in Workshop content, download skipped",
+                    "INFO"
+                )
+                return True
+
+            self._log(f"Downloading mod {label}...", "INFO")
+
             cmd = [self.steamcmd_path]
 
             # Указать директорию установки (чтобы SteamCMD использовал тот же Steam root)
@@ -299,6 +387,16 @@ class SteamCMD:
                     lines = output.strip().split('\n')
                     for line in lines[-15:]:
                         self._log(f"  {line}", "DEBUG")
+
+                if self.is_mod_present_locally(mod_id, workshop_id):
+                    self._log(
+                        f"Mod {label} download failed, using existing Workshop content on disk",
+                        "WARN"
+                    )
+                    if remote_time is not None:
+                        self._set_cached_mod_time(mod_id, remote_time)
+                    return True
+
                 return False
 
         except subprocess.TimeoutExpired:

@@ -414,6 +414,45 @@ def test_get_tail_lines_clamped(watcher_with_server):
     w.end_session(server["id"])
 
 
+def test_find_rpt_for_session_accepts_recent_latest(watcher, profiles_dir):
+    started = time.time()
+    make_rpt(profiles_dir, "DayZServer_x64_old.RPT", mtime=started - 3600)
+    time.sleep(0.05)
+    recent = make_rpt(
+        profiles_dir,
+        "DayZServer_x64_slow.RPT",
+        lines=["loading"],
+        mtime=time.time(),
+    )
+    found = watcher._find_rpt_for_session(profiles_dir, started)
+    assert found is not None
+    assert found.name == recent.name
+
+
+def test_late_rpt_attached_in_tail_loop(watcher_with_server, profiles_dir):
+    """RPT created after the old 30s window should still be picked up."""
+    w, server = watcher_with_server
+    w.set_running_checker(lambda s: True)
+    w.begin_session(server)
+    time.sleep(0.35)
+    path = make_rpt(
+        profiles_dir,
+        "DayZServer_x64_late.RPT",
+        lines=[DEFAULT_READY_MARKER],
+        mtime=time.time(),
+    )
+    deadline = time.time() + 5.0
+    while time.time() < deadline:
+        info = w.get_startup_info(server, running=True)
+        if info.get("current_rpt") == path.name:
+            break
+        time.sleep(0.2)
+    info = w.get_startup_info(server, running=True)
+    w.end_session(server["id"])
+    assert info["current_rpt"] == path.name
+    assert info["startup_phase"] == "ready"
+
+
 def test_newer_rpt_detected_after_start(watcher, profiles_dir):
     """Tail loop picks newer RPT when a second file appears (mtime)."""
     started = time.time() - 1

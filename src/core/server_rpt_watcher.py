@@ -101,6 +101,10 @@ class ServerRptWatcher:
     def _ready_timeout_sec(self) -> float:
         return float(self.config.get("settings.startup_ready_timeout_sec", 180))
 
+    def _find_timeout_sec(self) -> float:
+        """How long to keep looking for a new RPT after server start (heavy mod lists need >30s)."""
+        return max(60.0, self._ready_timeout_sec())
+
     def _find_rpt(self, profiles_dir: Path, after_ts: float) -> Optional[Path]:
         if not profiles_dir.is_dir():
             return None
@@ -132,6 +136,43 @@ class ServerRptWatcher:
                 latest_mtime = mtime
                 latest = path
         return latest
+
+    def _find_rpt_for_session(self, profiles_dir: Path, after_ts: float) -> Optional[Path]:
+        """Prefer RPT created after this start; fall back to newest file within a grace window."""
+        found = self._find_rpt(profiles_dir, after_ts)
+        if found:
+            return found
+
+        latest = self._find_latest_rpt(profiles_dir)
+        if latest is None:
+            return None
+
+        try:
+            mtime = latest.stat().st_mtime
+        except OSError:
+            return None
+        if mtime >= after_ts - 2.0:
+            return latest
+        # Heavy mod load: RPT may appear 30–120s after the manager marks the process up.
+        if mtime >= time.time() - 120.0:
+            return latest
+        return None
+
+    def _attach_rpt_path(self, session: ServerSession, path: Path):
+        session.rpt_path = path
+        session.current_rpt = path.name
+        session.file_pos = 0
+        session.partial_line = b""
+        if session.startup_warning == "rpt_not_found":
+            session.startup_warning = None
+            self._broadcast_status(session)
+        if self._scan_tail_for_ready(session, path):
+            session.file_pos = path.stat().st_size
+            self._broadcast_ready(session)
+        self._log(
+            f"RPT attached for {session.server_id} ({path.name})",
+            "INFO",
+        )
 
     def _decode_line(self, raw: bytes) -> str:
         for enc in ("utf-8", "cp1251"):
@@ -246,35 +287,33 @@ class ServerRptWatcher:
     def _tail_loop(self, session: ServerSession):
         profiles_dir = session.profiles_dir
         poll = self._poll_ms()
-        find_deadline = time.time() + 30.0
+        find_deadline = time.time() + self._find_timeout_sec()
+        rpt_warn_logged = False
 
         while not session.stop_event.is_set():
             if session.rpt_path is None:
-                if time.time() > find_deadline:
-                    session.startup_warning = "rpt_not_found"
-                    self._log(
-                        f"RPT not found for {session.server_id} in {profiles_dir}",
-                        "WARN",
-                    )
-                    self._broadcast_status(session)
-                    while not session.stop_event.is_set():
-                        if self._is_running_cb:
-                            server = self.config.get_server(session.server_id)
-                            if server and not self._is_running_cb(server):
-                                session.phase = "stopped"
-                                return
-                        time.sleep(1.0)
-                    return
-                path = self._find_rpt(profiles_dir, session.started_at)
+                path = self._find_rpt_for_session(profiles_dir, session.started_at)
                 if path:
-                    session.rpt_path = path
-                    session.current_rpt = path.name
-                    session.file_pos = 0
-                    if self._scan_tail_for_ready(session, path):
-                        session.file_pos = path.stat().st_size
-                        self._broadcast_ready(session)
+                    self._attach_rpt_path(session, path)
                 else:
-                    time.sleep(0.5)
+                    if not rpt_warn_logged and time.time() >= session.started_at + 30.0:
+                        rpt_warn_logged = True
+                        session.startup_warning = "rpt_not_found"
+                        self._log(
+                            f"RPT not found yet for {session.server_id} in {profiles_dir} "
+                            f"(still searching, timeout {int(self._find_timeout_sec())}s)",
+                            "WARN",
+                        )
+                        self._broadcast_status(session)
+                    if self._is_running_cb:
+                        server = self.config.get_server(session.server_id)
+                        if server and not self._is_running_cb(server):
+                            session.phase = "stopped"
+                            return
+                    if time.time() > find_deadline:
+                        time.sleep(1.0)
+                    else:
+                        time.sleep(0.5)
                     continue
 
             path = session.rpt_path
@@ -282,7 +321,7 @@ class ServerRptWatcher:
                 time.sleep(poll)
                 continue
 
-            newer = self._find_rpt(profiles_dir, session.started_at)
+            newer = self._find_rpt_for_session(profiles_dir, session.started_at)
             if newer and newer != path:
                 try:
                     if newer.stat().st_mtime > path.stat().st_mtime:
