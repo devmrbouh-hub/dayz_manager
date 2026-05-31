@@ -218,3 +218,6 @@ Cleanup failed-start: если процесс сервера успел стар
 ## Файлы данных
 
 Кэши Workshop/hash лежат в `data/`. В frozen EXE-сборке эти файлы находятся рядом с `DayZManager.exe` во внешней директории установки, а не внутри временного PyInstaller bundle.
+
+- **`data/mod_versions.json`** — кэш `time_updated` Workshop. Ключи **`w:{workshop_id}`** (общий для всех `servers[]` на хосте). При загрузке legacy `server_id:mod_id` сливаются в `w:` (максимальный timestamp на mod id). Не коммитить в git; править вручную только если понимаете логику ModCheck.
+- **`data/mod_hashes.json`** — вспомогательный/legacy кэш хэшей (не используется для решений ModCheck).

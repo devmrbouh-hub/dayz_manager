@@ -30,7 +30,8 @@ node --test tests/test_server_status.mjs
 
 | Набор | Файл | Что проверяет |
 |-------|------|----------------|
-| Watcher | `tests/test_server_rpt_watcher.py` | фазы, маркер, FPS, lazy attach, … |
+| Watcher | `tests/test_server_rpt_watcher.py` | фазы, маркер, FPS, lazy attach, поздний RPT, `_find_rpt_for_session`, … |
+| SteamCMD cache | `tests/test_steamcmd_mod_cache.py` | общий кэш `w:`, миграция legacy-ключей, skip download, fallback при сбое SteamCMD |
 | Chat | `tests/test_server_chat_watcher.py` | парс ExpLog, history, tail |
 | Live stats | `tests/test_live_stats.py` | FPS, maxPlayers, parse_players |
 | ServerManager | `tests/test_server_mgr_rpt.py` | begin/end session, hide console, cleanup failed-start, безопасный restart |
@@ -41,7 +42,7 @@ node --test tests/test_server_status.mjs
 | Runtime paths | `tests/test_runtime_paths.py` | frozen EXE пишет data-кэш рядом с внешней установкой |
 | UI | `tests/test_server_status.mjs` | STOPPED/STARTING/READY, фильтр WEAPON |
 
-**Последний прогон (2026-05-30):** `pytest` — 80 passed; `node --test tests/test_server_status.mjs` — 10 passed.
+**Последний прогон (2026-05-31):** `pytest` — 87 passed; `node --test tests/test_server_status.mjs` — 10 passed.
 
 **CI:** GitHub Actions гоняет и `pytest`, и `node --test tests/test_server_status.mjs`.
 

@@ -2,6 +2,14 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
+## 2026-05-31 — Общий кэш Workshop и поздний RPT
+
+- `data/mod_versions.json` использует общие ключи `w:{workshop_id}` (не per-server); legacy `server_id:mod_id` мигрируются при загрузке (берётся максимальный `time_updated`).
+- ModCheck / `download_mod` пропускают SteamCMD, если remote-версия совпадает с кэшем и `steamapps/workshop/content/221100/<id>` не пуста.
+- При сбое SteamCMD, если папка Workshop на диске есть, загрузка считается успешной с WARN и кэш обновляется (обновление лаунчером/вручную).
+- `ServerRptWatcher` ищет RPT до `max(60, settings.startup_ready_timeout_sec)`; WARN на 30 с, но поиск продолжается; поздний RPT подключается, `rpt_not_found` снимается.
+
+---
 
 ## 2026-05-30 — Hardening host-manager на `main`
 

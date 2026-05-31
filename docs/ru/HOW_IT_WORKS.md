@@ -75,8 +75,11 @@ POST /api/servers/{id}/start
 
 **ModCheck** (интервал `scheduler.mod_check_interval`):
 
-1. Сравнить `time_updated` через Steam Web API (`data/mod_versions.json`).
-2. При обновлениях: RCON-предупреждение → shutdown (или force-stop) → SteamCMD download → junction/keys → перезапуск, если сервер был online.
+1. Сравнить `time_updated` через Steam Web API (`data/mod_versions.json`). Ключи кэша — **`w:{workshop_id}`** (одна запись на Workshop-айтем для всех серверов на хосте, общая папка `content/221100/<id>`). Legacy `server_id:mod_id` мигрируются при старте менеджера.
+2. Детекция **не** сравнивает хэши файлов на диске — только метаданные Steam API vs кэш.
+3. При обновлениях: RCON-предупреждение → shutdown (или force-stop) → SteamCMD download → junction/keys → перезапуск, если сервер был online.
+4. **Skip / fallback:** если кэш совпадает с Workshop и папка content не пуста — SteamCMD не вызывается; при сбое SteamCMD, но наличии папки на диске — принимается локальный контент (WARN), кэш обновляется.
+5. Если админ обновил моды **клиентским Steam**, а `mod_versions.json` устарел — ModCheck может всё ещё запланировать цикл, пока кэш не обновится; skip/fallback уменьшают лишний SteamCMD при актуальном кэше или сбое CMD.
 
 **ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, копирование `.bikey` в `keys/`.
 
@@ -135,8 +138,9 @@ POST /api/servers/{id}/start
 | `starting` | PID есть, маркер READY ещё не встречен в сессии |
 | `ready` | В RPT появилась `startup_ready_marker` (по умолчанию `[IdleMode] Entering IN - save processed`) |
 
-- `running` (PID) и `ready` — разные вещи: PID появляется за секунды, READY — через ~30–60 с на reference-хосте.
+- `running` (PID) и `ready` — разные вещи: PID появляется за секунды, READY — через ~30–60 с на reference-хосте (дольше при тяжёлом списке модов).
 - Повторный `Entering IN` после `Leaving OUT` не сбрасывает фазу.
+- **Поиск RPT:** не обрывается на 30 с; на 30 с в UI может быть `rpt_not_found`, watcher ищет до `max(60, settings.startup_ready_timeout_sec)`. Поздний RPT подключается, предупреждение снимается. Fallback — newest RPT в grace window (~120 с mtime), если файл появился с задержкой.
 - **Lazy attach:** DayZ уже запущен (ручной старт / рестарт менеджера) — подхват последнего RPT при `GET /api/servers`.
 - Консоль: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); старт только через менеджер.
 - Live stats: FPS из RPT tail; игроки — RCON `players` каждые ~5 с; чат — Expansion ExpLog tail.
@@ -178,7 +182,7 @@ POST /api/servers/{id}/start
 
 | Путь | Назначение |
 |------|------------|
-| `data/mod_versions.json` | Кэш версий Workshop (в frozen-сборке рядом с EXE) |
+| `data/mod_versions.json` | Кэш версий Workshop, ключи `w:{workshop_id}` (общий для всех серверов; в frozen-сборке рядом с EXE) |
 | `data/mod_hashes.json` | Legacy/вспомогательный кэш (в frozen-сборке рядом с EXE) |
 | `logs/manager.log` | Лог менеджера |
 | `{server}/server.pid` | PID процесса |

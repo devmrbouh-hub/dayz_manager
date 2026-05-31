@@ -31,7 +31,8 @@ node --test tests/test_server_status.mjs
 
 | Suite | File | Checks |
 |-------|------|--------|
-| Watcher | `tests/test_server_rpt_watcher.py` | phases, marker, FPS, lazy attach, … |
+| Watcher | `tests/test_server_rpt_watcher.py` | phases, marker, FPS, lazy attach, late RPT attach, `_find_rpt_for_session`, … |
+| SteamCMD cache | `tests/test_steamcmd_mod_cache.py` | shared `w:` cache, legacy key migration, skip download, accept local content after failed SteamCMD |
 | Chat | `tests/test_server_chat_watcher.py` | ExpLog parse, history, tail |
 | Live stats | `tests/test_live_stats.py` | FPS, maxPlayers, parse_players |
 | ServerManager | `tests/test_server_mgr_rpt.py` | session begin/end, hide console, failed-start cleanup, safe restart |
@@ -42,7 +43,7 @@ node --test tests/test_server_status.mjs
 | Runtime paths | `tests/test_runtime_paths.py` | frozen EXE writes data cache next to external install |
 | UI | `tests/test_server_status.mjs` | STOPPED/STARTING/READY, WEAPON filter |
 
-**Last run (2026-05-30):** `pytest` — 80 passed; `node --test tests/test_server_status.mjs` — 10 passed.
+**Last run (2026-05-31):** `pytest` — 87 passed; `node --test tests/test_server_status.mjs` — 10 passed.
 
 **CI:** GitHub Actions runs both `pytest` and `node --test tests/test_server_status.mjs`.
 

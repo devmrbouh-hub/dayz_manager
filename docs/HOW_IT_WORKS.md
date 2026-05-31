@@ -75,8 +75,11 @@ Only **numeric** IDs get auto-update; otherwise mod is in launch but not updated
 
 **ModCheck** (interval `scheduler.mod_check_interval`):
 
-1. Compare `time_updated` via Steam Web API (`data/mod_versions.json`).
-2. On updates: RCON warning → shutdown (or force-stop) → SteamCMD download → junction/keys → restart if was online.
+1. Compare `time_updated` via Steam Web API (`data/mod_versions.json`). Cache keys are **`w:{workshop_id}`** — one entry per Workshop item for all servers on the host (shared `content/221100/<id>` folder). Legacy `server_id:mod_id` keys are migrated on manager start.
+2. Detection does **not** hash local files; it trusts Steam API metadata vs the cache.
+3. On updates: RCON warning → shutdown (or force-stop) → SteamCMD download → junction/keys → restart if was online.
+4. **Skip / fallback:** if cache matches Workshop and the content folder is non-empty, SteamCMD is skipped; if SteamCMD fails but the folder exists, the manager accepts on-disk content (WARN) and refreshes the cache.
+5. If an admin updated mods via the **Steam client** but `mod_versions.json` is still stale, ModCheck may still schedule a cycle until the cache is updated; skip/fallback reduce redundant SteamCMD when the cache is current or CMD fails.
 
 **ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, copy `.bikey` to `keys/`.
 
@@ -135,8 +138,9 @@ Module `ServerRptWatcher` — one background thread per server, reads `{path}/{p
 | `starting` | PID exists, READY marker not seen in session |
 | `ready` | `startup_ready_marker` found in RPT (default `[IdleMode] Entering IN - save processed`) |
 
-- `running` (PID) and `ready` differ: PID in seconds, READY often ~30–60 s on a typical host.
+- `running` (PID) and `ready` differ: PID in seconds, READY often ~30–60 s on a typical host (longer with heavy mod lists).
 - Repeated `Entering IN` after `Leaving OUT` does not reset phase.
+- **RPT discovery:** search does not stop at 30s; at 30s the UI may show `rpt_not_found` while the watcher keeps looking until `max(60, settings.startup_ready_timeout_sec)`. A late-created RPT is attached and the warning clears. Fallback accepts the newest RPT within a grace window (~120s mtime) when the file appears slowly after start.
 - **Lazy attach:** DayZ already running — attach latest RPT on `GET /api/servers`.
 - Console: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); start only via manager.
 - Live stats: FPS from RPT; players — RCON `players` every ~5 s; chat — Expansion ExpLog tail.
@@ -179,7 +183,7 @@ Module `src/notifications/discord_bot.py` exists but is **not wired** in `main.p
 
 | Path | Purpose |
 |------|---------|
-| `data/mod_versions.json` | Workshop version cache (next to EXE in frozen build) |
+| `data/mod_versions.json` | Workshop version cache, keys `w:{workshop_id}` (shared across servers; next to EXE in frozen build) |
 | `data/mod_hashes.json` | Legacy/auxiliary cache (next to EXE in frozen build) |
 | `logs/manager.log` | Manager log |
 | `{server}/server.pid` | Process PID |

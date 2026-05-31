@@ -217,3 +217,6 @@ On start the manager compares `port` / `query_port` with `serverDZ.cfg` and logs
 ## Data files
 
 Workshop/hash caches are stored under `data/`. In frozen EXE deployments these files live next to `DayZManager.exe` in the external installation directory, not inside the temporary PyInstaller bundle.
+
+- **`data/mod_versions.json`** — Workshop `time_updated` cache. Keys are **`w:{workshop_id}`** (shared for all `servers[]` on the host). On load, legacy `server_id:mod_id` entries are merged into `w:` keys (max timestamp per mod id). Do not commit this file to git; edit manually only if you understand ModCheck behavior.
+- **`data/mod_hashes.json`** — auxiliary/legacy hash cache (not used for ModCheck decisions).
