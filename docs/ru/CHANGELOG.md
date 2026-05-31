@@ -2,6 +2,14 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
+## 2026-05-31 — v1.0.2 UI и исправления host-manager
+
+- Панель логов менеджера свёрнута по умолчанию (`<details>`); разворачивается по клику.
+- Кнопка **Открыть папку** в шапке карточки сервера (видна и в свёрнутом виде); открывает `servers[].path` в Проводнике Windows через `POST /api/servers/{id}/open-folder`.
+- Релиз **v1.0.2** также включает все изменения с v1.0.1: hardening host-manager, общий кэш модов `w:{workshop_id}`, поздний RPT watcher (см. секции ниже).
+
+---
+
 ## 2026-05-31 — Общий кэш Workshop и поздний RPT
 
 - `data/mod_versions.json` использует общие ключи `w:{workshop_id}` (не per-server); legacy `server_id:mod_id` мигрируются при загрузке (берётся максимальный `time_updated`).

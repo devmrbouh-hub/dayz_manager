@@ -2,6 +2,14 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-05-31 — v1.0.2 UI and host fixes
+
+- Manager logs panel collapsed by default (`<details>`); expand on click.
+- **Open folder** button on server card header (visible when collapsed); opens `servers[].path` in Windows Explorer via `POST /api/servers/{id}/open-folder`.
+- Release **v1.0.2** also ships all changes since v1.0.1: host hardening, shared `w:{workshop_id}` mod cache, late RPT watcher (see sections below).
+
+---
+
 ## 2026-05-31 — Shared Workshop cache and late RPT
 
 - `data/mod_versions.json` now uses shared keys `w:{workshop_id}` (not per-server); legacy `server_id:mod_id` entries are migrated on load (max `time_updated` wins).
