@@ -1,113 +1,50 @@
 ﻿# DayZ Server Manager
 
-Единый менеджер DayZ-серверов на Windows: веб-UI, REST API, WatchDog, автообновление модов через SteamCMD, плановые и CRON-рестарты. **Любая карта и набор модов** — только через `config.json` (путь сервера, `mod_list.txt`, launch args). Несколько инстансов на одном хосте.
-
-Текущая роль проекта: **локальный менеджер на игровом хосте**. В будущем этот код может стать **host-agent** за отдельным cloud/admin-контуром, но сейчас репозиторий **не** предоставляет публичную интернет-панель.
-
 **Languages:** [English](README.md) · [Русский](README.ru.md)
 
-**Документация:** [docs/ru/INDEX.md](docs/ru/INDEX.md) · **Лицензия:** [MIT](LICENSE) · **Скачать:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases) (готовый EXE)
+Надоели батники? Этот менеджер заменяет их удобным веб-интерфейсом.
+Запускайте серверы, обновляйте моды, следите за игроками — всё из браузера.
 
-> **Описание репозитория на GitHub:** `Менеджер DayZ dedicated server для Windows — веб-UI, несколько серверов, моды SteamCMD, RCON, WatchDog, плановые рестарты`
+> 👉 **Просто хотите запустить?** Скачайте EXE → распакуйте → отредактируйте config.json → запустите. [К быстрому старту ↓](#production-хост)
 
-## Требования
-
-Перед быстрым стартом: установлены **DayZ Dedicated Server** и **SteamCMD**, BattlEye RCON настроен на сервере.
-
-Поле `servers[].id` — любое имя (`server1`, `chernarus`, …). В примерах документации используется `server1`; подставьте свой id из `config.json`.
-
-**Не стартует?** Проверьте `auth.api_key`, пути Steam и [RUNBOOK.md](docs/ru/RUNBOOK.md).
-
-- Windows, Python 3.10+
-- [SteamCMD](https://developer.valvesoftware.com/wiki/SteamCMD) и установка DayZ Server
-- **bercon-cli.exe** — в корне проекта или путь в `rcon.client_path` в `config.json` (см. [CONFIG.md](docs/ru/CONFIG.md))
-
-## Возможности
-
-- Несколько серверов: start / stop / restart
-- WatchDog — автоперезапуск при падении (`auto_restart`, интервал `settings.watchdog_interval`, по умолчанию 10 с)
-- **Planned restart** — рестарт по интервалу от 00:00 с RU/EN предупреждениями, lock и kick на T-5 (настройка на карточке сервера)
-- Проверка и синхронизация модов (`mod_list.txt`, junction, Steam Web API)
-- CRON-рестарты (legacy) по `scheduler.restart_schedule`
-- RCON: say, lock, kick, graceful shutdown
-- Web UI, REST API, WebSocket логов
-- **Live stats** на карточке: FPS, игроки X/max, список ников
-- **Игровой чат** на карточке: ExpLog + admin say (24 ч история)
-- Хуки `beforeStart` / `afterStop`
-- Сборка в один EXE (`build.bat`)
+**Лицензия:** [MIT](LICENSE) · **Скачать:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)
 
 ## Скриншоты
 
-Компактный список серверов — несколько инстансов на одном хосте:
-
 ![DayZ Manager — список серверов](docs/images/ui-servers-compact.png)
-
-Развёрнутая карточка — рестарт, RPT-лог, игровой чат:
-
 ![DayZ Manager — карточка сервера](docs/images/ui-server-expanded.png)
 
-## Модель доступа
+## Что умеет
 
-- Проект рассчитан на **доверенный локальный хост** или приватную админ-сеть.
-- Базовый сценарий: открыть `http://127.0.0.1:8000` на той же машине и ввести `auth.api_key`.
-- Встроенный UI/API не стоит рассматривать как публичную панель для интернета. Для удалённого доступа нужен отдельный gateway/cloud-слой перед будущим agent.
-- Hooks выполняют локальный Python-код из директории установки и должны считаться доверенной админ-автоматизацией.
+- Запуск / остановка / рестарт нескольких серверов из браузера
+- WatchDog — автоперезапуск при падении
+- Обновление модов через SteamCMD с предупреждениями игрокам (5 мин)
+- Плановые рестарты с обратным отсчётом в игре (RU/EN)
+- Live-статистика: FPS, список игроков с никами
+- Игровой чат прямо в браузере
+- RCON: say, kick, lock, graceful shutdown
+- Один EXE для Windows — установка не нужна
 
-## Быстрый старт
+## Быстрый старт (EXE — рекомендуется)
 
-### 1. Клонировать и зависимости
+**Нужно:** DayZ Dedicated Server + SteamCMD + настроенный BattlEye RCON.
 
-```powershell
-git clone https://github.com/devmrbouh-hub/dayz_manager.git
-cd dayz_manager
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
-
-### 2. RCON-клиент
-
-Скачайте [bercon-cli](https://github.com/WoozyMasta/bercon-cli) и положите `bercon-cli.exe` в корень проекта  
-или укажите путь в `config.json` → `rcon.client_path` (см. шаблон).
-
-### 3. Конфиг
-
-```powershell
-copy config\config-host-template.json config\config.json
-```
-
-В `config\config.json` обязательно задайте:
+1. Скачайте архив **`dayz_manager-*-windows-x64.zip`** из [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)
+2. Распакуйте на игровой хост
+3. Скопируйте `config\config-host-template.json` → `config\config.json`
+4. Отредактируйте `config.json` — укажите 4 параметра:
 
 | Поле | Что указать |
 |------|-------------|
-| `auth.api_key` | Свой ключ (не `change_this_api_key` — иначе менеджер не стартует) |
-| `steam.steamcmd_path`, `steam.workshop_path` | Пути к SteamCMD и Workshop |
-| `servers[].path`, порты | Папка и порты вашего dedicated server |
-| `servers[].rcon_password` | Как в BattlEye `BEServer_*.cfg` |
+| `auth.api_key` | Любой пароль на ваш выбор |
+| `steam.steamcmd_path` | Путь к steamcmd.exe |
+| `servers[].path` | Путь к папке DayZ сервера |
+| `servers[].rcon_password` | Как в BEServer_*.cfg |
 
-Пароль Steam — через `DAYZ_STEAM_USERNAME` / `DAYZ_STEAM_PASSWORD` или поля `steam.*` (см. [CONFIG.md](docs/ru/CONFIG.md)).
+5. Запустите `DayZManager.exe`
+6. Откройте **http://127.0.0.1:8000** и введите ваш api_key
 
-`config/config.json` **не в git** — только на вашей машине.
-
-### 4. Запуск
-
-```powershell
-python src/main.py
-```
-
-Откройте **http://127.0.0.1:8000** → введите тот же `auth.api_key` в поле API Key (сохранится в браузере для локального UI).
-
-### 5. Проверка
-
-```powershell
-pytest
-# или smoke (менеджер должен быть запущен):
-set API_KEY=ваш_ключ_из_config
-set SERVER_ID=server1
-test_system.bat
-```
-
-Дальше: [RUNBOOK.md](docs/ru/RUNBOOK.md) (BattlEye, firewall), [DEPLOY.md](docs/ru/DEPLOY.md) (EXE на хост).
+Готово. Полный справочник конфига: [docs/ru/CONFIG.md](docs/ru/CONFIG.md)
 
 ## Production (хост)
 
