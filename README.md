@@ -2,114 +2,49 @@
 
 **Languages:** [English](README.md) · [Русский](README.ru.md)
 
-Unified DayZ server manager for Windows: web UI, REST API, WatchDog, SteamCMD mod updates, planned and CRON restarts. **Any map and mod set** — configured only via `config.json` (server path, `mod_list.txt`, launch args). Multiple instances on one host.
+Tired of batch files? This manager replaces them with a clean web UI.
+Start/stop servers, auto-update mods, monitor players — all from a browser.
 
-Current role: **local host manager** on the game machine. In the future this codebase may act as a **host agent** behind a separate cloud/admin layer, but this repository does **not** provide a public internet-ready control panel today.
+> 👉 **Just want to run it?** Download EXE → unzip → edit config.json → run. [Jump to Quick Start ↓](#production-host)
 
-**Docs:** [docs/INDEX.md](docs/INDEX.md) · **License:** [MIT](LICENSE) · **Downloads:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases) (ready-made EXE, no build)
-
-> **GitHub About (description):** `DayZ dedicated server manager for Windows — web UI, multi-server, SteamCMD mods, RCON, WatchDog, planned restarts`
-
-## Prerequisites
-
-Before quick start: **DayZ Dedicated Server** and **SteamCMD** installed, BattlEye RCON configured on the game server.
-
-Field `servers[].id` is any name you choose (`server1`, `chernarus`, …). Examples in docs use `server1`; use your id from `config.json`.
-
-**Manager won't start?** Check `auth.api_key`, Steam paths, and [RUNBOOK.md](docs/RUNBOOK.md).
-
-## Requirements
-
-- Windows, Python 3.10+
-- [SteamCMD](https://developer.valvesoftware.com/wiki/SteamCMD) and DayZ Server installation
-- **bercon-cli.exe** — project root or `rcon.client_path` in `config.json` (see [CONFIG.md](docs/CONFIG.md))
-
-## Features
-
-- Multiple servers: start / stop / restart
-- WatchDog — auto-restart on crash (`auto_restart`, `settings.watchdog_interval`, default 10 s)
-- **Planned restart** — interval from 00:00 with RU/EN warnings, lock and kick at T-5 (server card)
-- Mod check and sync (`mod_list.txt`, junctions, Steam Web API)
-- CRON restarts (legacy) via `scheduler.restart_schedule`
-- RCON: say, lock, kick, graceful shutdown
-- Web UI, REST API, log WebSockets
-- **Live stats** on card: FPS, players X/max, nicknames
-- **In-game chat** on card: ExpLog + admin say (24 h history)
-- Hooks `beforeStart` / `afterStop`
-- Single-file EXE build (`build.bat`)
+**License:** [MIT](LICENSE) · **Downloads:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)
 
 ## Screenshots
 
-Compact server list — several instances on one host:
-
 ![DayZ Manager — compact server list](docs/images/ui-servers-compact.png)
-
-Expanded server card — restart settings, RPT log, in-game chat:
-
 ![DayZ Manager — expanded server card](docs/images/ui-server-expanded.png)
 
-## Access model
+## What it does
 
-- Intended for a **trusted local host** or private admin network.
-- Default operator flow: open `http://127.0.0.1:8000` on the same machine and enter `auth.api_key`.
-- Do **not** treat the built-in UI/API as a public internet panel. For remote/public administration use a separate gateway/cloud layer in front of a future agent.
-- Hooks execute local Python code from the installation directory and should be treated as trusted admin automation.
+- Start / stop / restart multiple servers from a browser
+- WatchDog — auto-restart on crash
+- Mod updates via SteamCMD with in-game player warnings (5 min countdown)
+- Planned restarts with RU/EN in-game countdown
+- Live stats: FPS, player count, nicknames
+- In-game chat visible in the browser
+- RCON: say, kick, lock, graceful shutdown
+- Single EXE for Windows — no install needed
 
-## Quick start
+## Quick Start (EXE — recommended)
 
-### 1. Clone and dependencies
+**You need:** DayZ Dedicated Server + SteamCMD + BattlEye RCON configured.
 
-```powershell
-git clone https://github.com/devmrbouh-hub/dayz_manager.git
-cd dayz_manager
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-```
+1. Download latest **`dayz_manager-*-windows-x64.zip`** from [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)
+2. Unzip anywhere on your game server host
+3. Copy `config\config-host-template.json` → `config\config.json`
+4. Edit `config.json` — set these 4 things:
 
-### 2. RCON client
+| Field | What to set |
+|-------|-------------|
+| `auth.api_key` | Any password you choose |
+| `steam.steamcmd_path` | Path to steamcmd.exe |
+| `servers[].path` | Path to your DayZ server folder |
+| `servers[].rcon_password` | Same as in BEServer_*.cfg |
 
-Download [bercon-cli](https://github.com/WoozyMasta/bercon-cli) and place `bercon-cli.exe` in the project root  
-or set `rcon.client_path` in `config.json` (see template).
+5. Run `DayZManager.exe`
+6. Open **http://127.0.0.1:8000** and enter your api_key
 
-### 3. Config
-
-```powershell
-copy config\config-host-template.json config\config.json
-```
-
-In `config\config.json` set at minimum:
-
-| Field | Value |
-|-------|--------|
-| `auth.api_key` | Your key (not `change_this_api_key` — manager refuses default) |
-| `steam.steamcmd_path`, `steam.workshop_path` | SteamCMD and Workshop paths |
-| `servers[].path`, ports | Dedicated server folder and ports |
-| `servers[].rcon_password` | Same as BattlEye `BEServer_*.cfg` |
-
-Steam password via `DAYZ_STEAM_USERNAME` / `DAYZ_STEAM_PASSWORD` or `steam.*` fields (see [CONFIG.md](docs/CONFIG.md)).
-
-`config/config.json` is **not in git** — local only.
-
-### 4. Run
-
-```powershell
-python src/main.py
-```
-
-Open **http://127.0.0.1:8000** → enter the same `auth.api_key` in the API Key field (stored in browser for this local UI).
-
-### 5. Verify
-
-```powershell
-pytest
-# optional smoke (manager must be running):
-set API_KEY=your_key_from_config
-set SERVER_ID=server1
-test_system.bat
-```
-
-Next: [RUNBOOK.md](docs/RUNBOOK.md) (BattlEye, firewall), [DEPLOY.md](docs/DEPLOY.md) (EXE on host).
+That's it. Full config reference: [docs/CONFIG.md](docs/CONFIG.md)
 
 ## Production (host)
 
