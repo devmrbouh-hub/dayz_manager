@@ -31,7 +31,7 @@ When you change docs, update **both** [docs/](.) and [docs/ru/](ru/) in the same
 | [CHANGELOG.md](CHANGELOG.md) | History: phase 1 stabilization, phase 2 planned restart |
 | [TESTING.md](TESTING.md) | Plan T1–T6, T4b planned restart, checklist |
 | [RELEASES.md](RELEASES.md) | Download pre-built EXE from GitHub Releases |
-| [ROADMAP.md](ROADMAP.md) | Phase 2: done and backlog |
+| [ROADMAP.md](ROADMAP.md) | Stages 0–5: numbered checklist, backlog |
 | [PRODUCT_ARCHITECTURE.md](PRODUCT_ARCHITECTURE.md) | Scaling: Cloud, Agent, Bridge, shop, SaaS |
 
 ## Config templates

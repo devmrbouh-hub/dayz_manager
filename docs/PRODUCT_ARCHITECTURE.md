@@ -9,7 +9,7 @@ Target architecture if DayZ Manager grows from a **host panel** to a **cloud pro
 Related docs:
 
 - [HOW_IT_WORKS.md](HOW_IT_WORKS.md) — how the agent works today
-- [ROADMAP.md](ROADMAP.md) — near-term host UI features (phase 2)
+- [ROADMAP.md](ROADMAP.md) — near-term host UI checklist (stages 0–5)
 - Donations/shop (tenant business rules): outside this repository — implement in Cloud, not in EXE
 
 ---
