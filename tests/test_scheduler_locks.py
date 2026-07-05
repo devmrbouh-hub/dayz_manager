@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, patch
 
 from src.core.scheduler import Scheduler
 from tests.conftest import FakeConfig, make_server
@@ -17,7 +17,9 @@ def _group_for(*servers):
     }
 
 
-def test_process_update_group_skips_when_server_already_locked(tmp_path, event_loop):
+@patch("src.core.steamcmd.SteamCMD")
+def test_process_update_group_skips_when_server_already_locked(mock_steamcmd_cls, tmp_path, event_loop):
+    mock_steamcmd_cls.return_value.is_installed.return_value = True
     server = make_server(tmp_path, query_port=2303, rcon_port=2304, rcon_password="secret")
     config = FakeConfig({"settings": {}, "scheduler": {}, "servers": [server]})
     scheduler = Scheduler(config)
@@ -34,7 +36,9 @@ def test_process_update_group_skips_when_server_already_locked(tmp_path, event_l
     scheduler.server_mgr.release_lock.assert_not_called()
 
 
-def test_process_update_group_releases_acquired_locks_on_partial_failure(tmp_path, event_loop):
+@patch("src.core.steamcmd.SteamCMD")
+def test_process_update_group_releases_acquired_locks_on_partial_failure(mock_steamcmd_cls, tmp_path, event_loop):
+    mock_steamcmd_cls.return_value.is_installed.return_value = True
     server1 = make_server(tmp_path / "s1", server_id="server1", query_port=2303, rcon_port=2304, rcon_password="secret")
     server2 = make_server(tmp_path / "s2", server_id="server2", query_port=2403, rcon_port=2404, rcon_password="secret")
     config = FakeConfig({"settings": {}, "scheduler": {}, "servers": [server1, server2]})
