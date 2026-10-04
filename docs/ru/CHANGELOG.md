@@ -2,6 +2,14 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
+## 2026-05-31 — v1.0.4 Путь к логу менеджера (frozen EXE)
+
+- **`logs/manager.log`** пишется рядом с `DayZManager.exe` (как `data/` и `config/`), а не во временную папку PyInstaller `_MEI*`, которая удаляется при выходе.
+- При старте в лог попадает полный путь: `Manager log file: …`
+- В файл пишутся и DEBUG-строки ModCheck/SteamCMD, не только INFO+.
+
+---
+
 ## 2026-05-31 — v1.0.3 Исправление общего кэша модов
 
 - **ModCheck / SteamCMD:** миграция legacy-ключей per-server теперь берёт **минимальный** `time_updated` на Workshop ID (не max), чтобы завышенная запись одного сервера не блокировала обновления для всех на общей папке `content/221100/<id>`.

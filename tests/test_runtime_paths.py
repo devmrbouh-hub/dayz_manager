@@ -28,6 +28,14 @@ def test_frozen_modules_use_external_data_dir(tmp_path, monkeypatch):
         assert steamcmd.MOD_VERSIONS_FILE == tmp_path / "data" / "mod_versions.json"
         assert mod_sync.MOD_HASHES_FILE == tmp_path / "data" / "mod_hashes.json"
 
+        import src.utils.logger as logger_module
+        importlib.reload(logger_module)
+        from src.utils.logger import LoggerManager
+
+        log_mgr = LoggerManager()
+        assert log_mgr.log_file == tmp_path / "logs" / "manager.log"
+
     importlib.reload(runtime_paths)
     importlib.reload(steamcmd)
     importlib.reload(mod_sync)
+    importlib.reload(importlib.import_module("src.utils.logger"))

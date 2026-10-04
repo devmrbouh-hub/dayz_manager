@@ -93,6 +93,7 @@ async def startup():
     logger = LoggerManager()
     app.state.logger = logger
     logger.info("DayZ Server Manager starting...")
+    logger.info(f"Manager log file: {logger.log_file}")
 
     # Проверить систему
     print("[3/5] Checking system dependencies...")

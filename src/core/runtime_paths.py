@@ -16,3 +16,8 @@ def get_runtime_base_dir() -> Path:
 def get_runtime_data_file(name: str) -> Path:
     """Return a file path under the external data directory."""
     return get_runtime_base_dir() / "data" / name
+
+
+def get_runtime_log_dir() -> Path:
+    """Writable log directory next to the app (EXE or repo root)."""
+    return get_runtime_base_dir() / "logs"

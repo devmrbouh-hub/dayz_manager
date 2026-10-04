@@ -185,7 +185,7 @@ Module `src/notifications/discord_bot.py` exists but is **not wired** in `main.p
 |------|---------|
 | `data/mod_versions.json` | Workshop version cache, keys `w:{workshop_id}` (shared across servers; next to EXE in frozen build) |
 | `data/mod_hashes.json` | Legacy/auxiliary cache (next to EXE in frozen build) |
-| `logs/manager.log` | Manager log |
+| `logs/manager.log` | Manager log (next to EXE in frozen build; DEBUG included) |
 | `{server}/server.pid` | Process PID |
 | `{server}/.stopped` | Block auto-start |
 | `{server}/SERVER_LOCK` | Race lock |

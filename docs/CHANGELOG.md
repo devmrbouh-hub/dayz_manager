@@ -2,6 +2,14 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-05-31 — v1.0.4 Manager log path (frozen EXE)
+
+- **`logs/manager.log`** is written next to `DayZManager.exe` (same install root as `data/` and `config/`), not PyInstaller’s temporary `_MEI*` folder that disappears on exit.
+- Startup logs the full path: `Manager log file: …`
+- DEBUG-level lines from ModCheck/SteamCMD are included in the log file (not only INFO+).
+
+---
+
 ## 2026-05-31 — v1.0.3 Shared mod cache fix
 
 - **ModCheck / SteamCMD:** legacy per-server cache migration now uses **minimum** `time_updated` per Workshop ID (not max), so one server’s inflated cache entry no longer blocks updates for all hosts sharing `content/221100/<id>`.

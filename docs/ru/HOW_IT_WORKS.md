@@ -184,7 +184,7 @@ POST /api/servers/{id}/start
 |------|------------|
 | `data/mod_versions.json` | Кэш версий Workshop, ключи `w:{workshop_id}` (общий для всех серверов; в frozen-сборке рядом с EXE) |
 | `data/mod_hashes.json` | Legacy/вспомогательный кэш (в frozen-сборке рядом с EXE) |
-| `logs/manager.log` | Лог менеджера |
+| `logs/manager.log` | Лог менеджера (рядом с EXE в frozen-сборке; пишется DEBUG) |
 | `{server}/server.pid` | PID процесса |
 | `{server}/.stopped` | Запрет автозапуска |
 | `{server}/SERVER_LOCK` | Блокировка гонок |
