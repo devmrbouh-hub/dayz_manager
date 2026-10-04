@@ -2,6 +2,14 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-10-04 — v1.0.5 Quieter manager logs and RCON encoding
+
+- Stop logging every RCON `players` poll (live stats); failures still log as WARN.
+- Read bercon-cli output as **cp866** on Windows so player tables parse correctly (no `????` lines in file logs).
+- Collapse repeated `.bikey` copy lines into one DEBUG summary per mod during ModSync.
+
+---
+
 ## 2026-05-31 — v1.0.4 Manager log path (frozen EXE)
 
 - **`logs/manager.log`** is written next to `DayZManager.exe` (same install root as `data/` and `config/`), not PyInstaller’s temporary `_MEI*` folder that disappears on exit.

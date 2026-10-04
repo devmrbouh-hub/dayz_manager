@@ -387,25 +387,30 @@ class ModSync:
 
     def _copy_keys(self, mod_name: str, workshop_mod: Path, keys_dir: Path):
         """Копировать .bikey файлы"""
-        # Папка keys в моде
+        copied: list[str] = []
+
         workshop_keys = workshop_mod / "keys"
         if workshop_keys.exists():
             for key_file in workshop_keys.glob("*.bikey"):
                 target = keys_dir / key_file.name
                 try:
                     shutil.copy2(key_file, target)
-                    self._log(f"      Copied key: {key_file.name}", "DEBUG")
+                    copied.append(key_file.name)
                 except Exception as e:
                     self._log(f"      ERROR copying {key_file.name}: {e}", "ERROR")
 
-        # Корень мода
         for key_file in workshop_mod.glob("*.bikey"):
             target = keys_dir / key_file.name
             try:
                 shutil.copy2(key_file, target)
-                self._log(f"      Copied key: {key_file.name}", "DEBUG")
+                if key_file.name not in copied:
+                    copied.append(key_file.name)
             except Exception as e:
                 self._log(f"      ERROR copying {key_file.name}: {e}", "ERROR")
+
+        if copied:
+            names = ", ".join(sorted(set(copied)))
+            self._log(f"      Copied {len(set(copied))} key(s) for {mod_name}: {names}", "DEBUG")
 
     def check_mod_updates(self, server: dict) -> List[str]:
         """Современная проверка обновлений через Steam Web API для effective-списка модов."""

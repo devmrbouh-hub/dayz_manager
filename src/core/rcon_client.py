@@ -11,6 +11,7 @@ from typing import Callable, List, Optional, Tuple
 
 MOD_NAMES_MAX_LEN = 120
 MESSAGE_PAUSE_SECONDS = 2
+_RCON_QUIET_COMMANDS = frozenset({'players'})
 
 
 DEFAULT_BERCON_PATH = os.path.join(
@@ -101,6 +102,11 @@ class RconClient:
         """Сделать текст безопасным для Windows-консоли."""
         return (text or '').encode('ascii', 'replace').decode('ascii')
 
+    @staticmethod
+    def _bercon_text_encoding() -> str:
+        """bercon-cli on Windows typically prints OEM (cp866) table output."""
+        return 'cp866' if os.name == 'nt' else 'utf-8'
+
     def _execute(self, host: str, port: int, password: str, command: str, timeout: int = 10) -> Tuple[bool, str, str]:
         bercon_path = self._get_bercon_path()
 
@@ -118,14 +124,16 @@ class RconClient:
                 'exec', '--', command
             ]
 
-            self._log(f"RCON exec: host={host} port={port} command={command}", "DEBUG")
+            quiet = command in _RCON_QUIET_COMMANDS
+            if not quiet:
+                self._log(f"RCON exec: host={host} port={port} command={command}", "DEBUG")
 
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
                 timeout=timeout,
-                encoding='utf-8',
+                encoding=self._bercon_text_encoding(),
                 errors='replace'
             )
 
@@ -134,7 +142,7 @@ class RconClient:
 
             if result.returncode == 0:
                 normalized_output = self._normalize_success_output(command, clean_output)
-                if normalized_output:
+                if normalized_output and not quiet:
                     first_line = normalized_output.splitlines()[0].strip()
                     if first_line:
                         self._log(
