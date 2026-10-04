@@ -2,7 +2,14 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
-## 2026-10-04 — v1.0.5 Тише логи и кодировка RCON
+## 2026-10-04 — v1.0.6 Пути Steam и junction в ModSync
+
+- **Документация / конфиг:** `steam.dayz_install_path` — папка **клиентского DayZ** (`…\\steamapps\\common\\DayZ`), не корень `…\\Steam`; обновлены шаблон, CONFIG и RUNBOOK (исправляет `force_install_dir: C:\\` и ситуацию «скачивание успешно, игроки на старой версии»).
+- **Пути Steam:** модуль `steam_paths.py`, библиотека из `workshop_path`; ERROR в логе при подозрительном `force_install_dir`; проверка папки мода после SteamCMD.
+- **ModSync:** пересоздание junction `!Workshop\\@Mod` → `content\\221100\\<ID>`, если алиас смотрит не туда.
+- **ModCheck:** детекция только по общему кэшу и Steam API (убрана петля по mtime файлов).
+
+---
 
 - Убран спам RCON `players` при опросе онлайна (ошибки по-прежнему WARN).
 - Вывод bercon-cli на Windows читается как **cp866** — таблица игроков парсится нормально, без `????` в файле.

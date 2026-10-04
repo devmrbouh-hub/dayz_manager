@@ -2,7 +2,14 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
-## 2026-10-04 — v1.0.5 Quieter manager logs and RCON encoding
+## 2026-10-04 — v1.0.6 Steam library paths and Workshop junction sync
+
+- **Docs / config:** `steam.dayz_install_path` must be the **DayZ client folder** (`…\\steamapps\\common\\DayZ`), not the Steam library root; host template and CONFIG/RUNBOOK updated (fixes `force_install_dir: C:\\` and mod updates not reaching the server).
+- **Steam paths:** `steam_paths.py` resolves the Steam library from `workshop_path` first; log ERROR when `force_install_dir` looks like a drive root; verify download target after SteamCMD success.
+- **ModSync:** recreate `!Workshop\\@Mod` junctions to `content\\221100\\<ID>` during sync when the alias points elsewhere.
+- **ModCheck:** version detection uses shared cache vs Steam API only (removed file-mtime loop that could repeat download without fixing player mismatches).
+
+---
 
 - Stop logging every RCON `players` poll (live stats); failures still log as WARN.
 - Read bercon-cli output as **cp866** on Windows so player tables parse correctly (no `????` lines in file logs).

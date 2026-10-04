@@ -17,6 +17,17 @@ Do not store passwords in the repo. Supported:
 
 If `steam.username` / `steam.password` are empty, the manager reads env vars.
 
+## Steam paths (`dayz_install_path` / `workshop_path`)
+
+SteamCMD `+force_install_dir` must target the **same Steam library** as the client launcher (where `steamapps\\workshop\\content\\221100\\<id>` lives). The manager derives that library from config:
+
+- **`steam.dayz_install_path`** — folder of the **DayZ client install**: `…\\steamapps\\common\\DayZ` (same tree as the Steam game install).
+- **`steam.workshop_path`** — `…\\common\\DayZ\\!Workshop` (junction aliases `@ModName` → Workshop content).
+
+**Do not** set `dayz_install_path` to the Steam library root only (e.g. `C:\\Program Files (x86)\\Steam`). Older builds computed `force_install_dir` by walking up from that path; with a library root the result could become `C:\\`, so SteamCMD updated the wrong disk location while the server still read mods from `workshop_path` — ModCheck looked successful but players saw version mismatches.
+
+If the key is omitted, the default is `…\\common\\DayZ` under Program Files (x86). After changing paths, check `logs/manager.log`: `SteamCMD force_install_dir` should be your Steam library (e.g. `…\\Steam`), **not** `C:\\`.
+
 ## Example structure
 
 ```json
@@ -27,6 +38,7 @@ If `steam.username` / `steam.password` are empty, the manager reads env vars.
     "guard_code": null,
     "auth_mode": "credentials",
     "steamcmd_path": "C:\\steamcmd\\steamcmd.exe",
+    "dayz_install_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ",
     "workshop_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ\\!Workshop"
   },
   "servers": [
@@ -81,7 +93,8 @@ If `steam.username` / `steam.password` are empty, the manager reads env vars.
 | Section | Field | Description | Required |
 |---------|-------|-------------|----------|
 | **steam** | steamcmd_path | Path to `steamcmd.exe` | Yes |
-| | workshop_path | Workshop content root | Yes |
+| | dayz_install_path | **Client DayZ folder** (`…\\steamapps\\common\\DayZ`), not the Steam library root | Yes* |
+| | workshop_path | `!Workshop` alias folder under that DayZ install | Yes |
 | | auth_mode | `credentials` or `session` | No |
 | | username/password | Or via env | No |
 | **servers** | id | Unique ID | Yes |
@@ -218,5 +231,5 @@ On start the manager compares `port` / `query_port` with `serverDZ.cfg` and logs
 
 Workshop/hash caches are stored under `data/`. In frozen EXE deployments these files live next to `DayZManager.exe` in the external installation directory, not inside the temporary PyInstaller bundle.
 
-- **`data/mod_versions.json`** — Workshop `time_updated` cache. Keys are **`w:{workshop_id}`** (shared for all `servers[]` on the host). On load, legacy `server_id:mod_id` entries are merged into `w:` keys (max timestamp per mod id). Do not commit this file to git; edit manually only if you understand ModCheck behavior.
+- **`data/mod_versions.json`** — Workshop `time_updated` cache. Keys are **`w:{workshop_id}`** (shared for all `servers[]` on the host). On load, legacy `server_id:mod_id` entries are merged into `w:` keys (**minimum** timestamp per mod id). Do not commit this file to git; edit manually only if you understand ModCheck behavior.
 - **`data/mod_hashes.json`** — auxiliary/legacy hash cache (not used for ModCheck decisions).

@@ -76,12 +76,14 @@ POST /api/servers/{id}/start
 **ModCheck** (интервал `scheduler.mod_check_interval`):
 
 1. Сравнить `time_updated` через Steam Web API (`data/mod_versions.json`). Ключи кэша — **`w:{workshop_id}`** (одна запись на Workshop-айтем для всех серверов на хосте, общая папка `content/221100/<id>`). Legacy `server_id:mod_id` мигрируются при загрузке (**минимальная** метка на мод).
-2. Детекция сравнивает метаданные API с кэшем **и** при необходимости max mtime файлов в Workshop-папке с `time_updated` (без хэшей PBO).
+2. Детекция сравнивает `time_updated` из API с общим кэшем (без хэшей PBO; mtime файлов не используется).
 3. При обновлениях: RCON-предупреждение → shutdown (или force-stop) → SteamCMD download → junction/keys → перезапуск, если сервер был online.
-4. **Skip / fallback:** SteamCMD не вызывается, если кэш совпадает с Workshop, папка не пуста и файлы не выглядят старее метаданных Workshop; при сбое SteamCMD, но наличии папки — принимается локальный контент (WARN) **без** обновления кэша, чтобы ModCheck повторил загрузку.
+4. **Skip / fallback:** SteamCMD не вызывается, если кэш совпадает с Workshop и папка content не пуста; при сбое SteamCMD, но наличии папки — принимается локальный контент (WARN) **без** обновления кэша, чтобы ModCheck повторил загрузку.
 5. Если админ обновил моды **клиентским Steam**, ModCheck может запланировать цикл, пока успешный SteamCMD не обновит кэш.
 
-**ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, копирование `.bikey` в `keys/`.
+**Пути Steam:** `steam.dayz_install_path` = `…\\steamapps\\common\\DayZ` (не корень `…\\Steam`). См. [CONFIG.md](CONFIG.md). Неверный путь давал `force_install_dir: C:\\` и mismatch у игроков при «успешном» скачивании.
+
+**ModSync:** при sync проверяется junction `!Workshop\\@Mod` → `content\\221100\\<ID>`, junction `server\\@Mod` → `!Workshop`, копирование `.bikey` в `keys/`.
 
 ## Planned restart (рекомендуемый способ)
 

@@ -58,18 +58,18 @@ def test_has_mod_update_after_shared_cache_merge_when_remote_newer(steamcmd):
             assert steamcmd.has_mod_update("banov", "2116157322", "@Licensed") is True
 
 
-def test_has_mod_update_detects_stale_files_without_cache(steamcmd, tmp_path):
+def test_has_mod_update_seeds_cache_without_mtime_heuristic(steamcmd, tmp_path):
     mod_dir = steamcmd.get_mod_path("2116157322")
     mod_dir.mkdir(parents=True)
     mod_file = mod_dir / "meta.cpp"
     mod_file.write_text("// mod", encoding="utf-8")
-    old_mtime = 1_600_000_000
     import os
 
-    os.utime(mod_file, (old_mtime, old_mtime))
+    os.utime(mod_file, (1_600_000_000, 1_600_000_000))
     remote = 1_780_062_106
     with patch.object(steamcmd, "_get_remote_mod_update_time", return_value=remote):
-        assert steamcmd.has_mod_update("banov", "2116157322", "@Licensed") is True
+        assert steamcmd.has_mod_update("banov", "2116157322", "@Licensed") is False
+    assert steamcmd._get_cached_mod_time("2116157322") == remote
 
 
 def test_has_mod_update_uses_shared_cache_when_current(steamcmd):
@@ -84,8 +84,8 @@ def test_mark_mod_version_synced_updates_workshop_key(steamcmd):
     assert steamcmd.mod_versions["w:2116157322"] == 1780062106
 
 
-def test_has_mod_update_when_shared_cache_inflated_but_files_stale(steamcmd, tmp_path):
-    mod_dir = steamcmd.get_mod_path("2116157322")
+def test_has_mod_update_when_cache_matches_remote_ignores_old_file_mtime(steamcmd, tmp_path):
+    mod_dir = steamcmd.get_mod_path("3726105026")
     mod_dir.mkdir(parents=True, exist_ok=True)
     mod_file = mod_dir / "meta.cpp"
     mod_file.write_text("// mod", encoding="utf-8")
@@ -93,9 +93,9 @@ def test_has_mod_update_when_shared_cache_inflated_but_files_stale(steamcmd, tmp
 
     remote = 1_780_062_106
     os.utime(mod_file, (1_600_000_000, 1_600_000_000))
-    write_mod_cache({"w:2116157322": remote})
+    write_mod_cache({"w:3726105026": remote})
     with patch.object(steamcmd, "_get_remote_mod_update_time", return_value=remote):
-        assert steamcmd.has_mod_update("banov", "2116157322", "@Licensed") is True
+        assert steamcmd.has_mod_update("banov", "3726105026", "@FutureLand_RK") is False
 
 
 def test_download_mod_skips_when_workshop_folder_exists_and_cache_current(steamcmd, tmp_path):

@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Optional
 
 from src.core.runtime_paths import get_runtime_data_file
+from src.core.steam_paths import (
+    is_suspicious_steam_library,
+    resolve_steam_library_path,
+    resolve_workshop_content_root,
+    workshop_download_dir,
+)
 from src.utils.http import urlopen as http_urlopen
 
 MOD_VERSIONS_FILE = get_runtime_data_file('mod_versions.json')
@@ -104,23 +110,6 @@ class SteamCMD:
         except OSError:
             return False
 
-    def _get_local_content_timestamp(self, mod_id: str, workshop_id: int = 221100) -> Optional[int]:
-        """Newest file mtime inside Workshop content (hint that files predate a Workshop publish)."""
-        mod_path = self.get_mod_path(mod_id, workshop_id)
-        if not mod_path.is_dir():
-            return None
-        newest = None
-        try:
-            for path in mod_path.rglob('*'):
-                if not path.is_file():
-                    continue
-                mtime = int(path.stat().st_mtime)
-                if newest is None or mtime > newest:
-                    newest = mtime
-        except OSError:
-            return None
-        return newest
-
     def _log(self, message: str, level: str = "INFO"):
         if self.logger:
             self.logger.log(message, level)
@@ -164,33 +153,14 @@ class SteamCMD:
 
     def get_steam_root_path(self) -> Path:
         """Корень Steam, который используется как force_install_dir."""
-        dayz_dir = Path(self.dayz_install_path)
-        try:
-            return dayz_dir.parent.parent.parent
-        except IndexError:
-            return dayz_dir
+        return resolve_steam_library_path(self.workshop_path, self.dayz_install_path)
 
     def get_workshop_content_path(self, workshop_id: int = 221100) -> Path:
         """Фактический путь Workshop content, куда кладёт SteamCMD."""
-        workshop_root = Path(self.workshop_path)
-        candidates = []
-
-        try:
-            candidates.append(workshop_root.parent.parent.parent / 'workshop' / 'content' / str(workshop_id))
-        except IndexError:
-            pass
-
-        dayz_dir = Path(self.dayz_install_path)
-        try:
-            candidates.append(dayz_dir.parent.parent / 'workshop' / 'content' / str(workshop_id))
-        except IndexError:
-            pass
-
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-
-        return candidates[0] if candidates else workshop_root
+        if workshop_id == 221100:
+            return resolve_workshop_content_root(self.workshop_path, self.dayz_install_path)
+        library = resolve_steam_library_path(self.workshop_path, self.dayz_install_path)
+        return library / "steamapps" / "workshop" / "content" / str(workshop_id)
 
     def _read_mod_versions_dict(self) -> dict:
         if MOD_VERSIONS_FILE.exists():
@@ -266,14 +236,6 @@ class SteamCMD:
             cached_time = self._get_cached_mod_time(mod_id)
             if cached_time is None:
                 if self.is_mod_present_locally(mod_id):
-                    local_ts = self._get_local_content_timestamp(mod_id)
-                    if local_ts is not None and int(remote_time) > int(local_ts):
-                        self._log(
-                            f"Workshop update detected for {label} "
-                            f"(remote newer than local Workshop files)",
-                            "INFO"
-                        )
-                        return True
                     self._set_cached_mod_time(mod_id, remote_time)
                     self._log(
                         f"Workshop version cached for {label} from existing local content",
@@ -295,15 +257,6 @@ class SteamCMD:
                         "DEBUG"
                     )
                 self._log(f"Workshop update detected for {label}", "INFO")
-                return True
-
-            local_ts = self._get_local_content_timestamp(mod_id)
-            if local_ts is not None and int(remote_time) > int(local_ts):
-                self._log(
-                    f"Workshop update detected for {label} "
-                    f"(cache current but Workshop files on disk look older)",
-                    "INFO"
-                )
                 return True
 
             return False
@@ -388,18 +341,11 @@ class SteamCMD:
                 and int(remote_time) <= int(cached_time)
                 and self.is_mod_present_locally(mod_id, workshop_id)
             ):
-                local_ts = self._get_local_content_timestamp(mod_id, workshop_id)
-                if local_ts is not None and int(remote_time) > int(local_ts):
-                    self._log(
-                        f"Mod {label} cache matches Workshop but files look older; downloading",
-                        "INFO"
-                    )
-                else:
-                    self._log(
-                        f"Mod {label} already present in Workshop content, download skipped",
-                        "INFO"
-                    )
-                    return True
+                self._log(
+                    f"Mod {label} already present in Workshop content, download skipped",
+                    "INFO"
+                )
+                return True
 
             self._log(f"Downloading mod {label}...", "INFO")
 
@@ -408,9 +354,21 @@ class SteamCMD:
             # Указать директорию установки (чтобы SteamCMD использовал тот же Steam root)
             steam_root = self.get_steam_root_path()
             workshop_content = self.get_workshop_content_path(workshop_id)
+            download_target = workshop_download_dir(
+                self.workshop_path, self.dayz_install_path, str(mod_id)
+            )
+            if is_suspicious_steam_library(steam_root):
+                self._log(
+                    f"Steam library path looks wrong ({steam_root}). "
+                    "Set steam.dayz_install_path to ...\\steamapps\\common\\DayZ "
+                    "and steam.workshop_path to ...\\DayZ\\!Workshop — "
+                    "otherwise SteamCMD may download mods outside the library used by the server.",
+                    "ERROR",
+                )
             cmd.extend(['+force_install_dir', str(steam_root)])
             self._log(f"SteamCMD force_install_dir: {steam_root}", "DEBUG")
             self._log(f"Workshop content path: {workshop_content}", "DEBUG")
+            self._log(f"Expected mod folder after download: {download_target}", "DEBUG")
             self._log(f"Workshop alias root: {self.workshop_path}", "DEBUG")
 
             if not self._append_login_args(cmd):
@@ -440,6 +398,14 @@ class SteamCMD:
 
             if success:
                 self._log(f"Mod {label} downloaded successfully", "INFO")
+                if download_target.exists():
+                    self._log(f"Workshop files on disk: {download_target}", "INFO")
+                else:
+                    self._log(
+                        f"SteamCMD reported success but folder is missing: {download_target}. "
+                        "Check force_install_dir vs steam.workshop_path.",
+                        "ERROR",
+                    )
                 return True
             else:
                 self._log(f"Failed to download mod {label}", "ERROR")

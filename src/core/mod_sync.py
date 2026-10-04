@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List, Dict, Optional
 
 from src.core.runtime_paths import get_runtime_data_file
+from src.core.steam_paths import resolve_workshop_content_root
 
 # Путь к кэшу хэшей
 MOD_HASHES_FILE = get_runtime_data_file('mod_hashes.json')
@@ -114,31 +115,17 @@ class ModSync:
         )
 
     def _get_workshop_content_root(self) -> Path:
-        """Путь к steamapps\workshop\content\221100."""
-        workshop_alias_root = self._get_workshop_alias_root()
-        candidates = []
-
-        # Типичный путь: <Steam>\steamapps\common\DayZ\!Workshop
-        try:
-            candidates.append(workshop_alias_root.parent.parent.parent / 'workshop' / 'content' / WORKSHOP_APP_ID)
-        except IndexError:
-            pass
-
-        dayz_install_path = self.config.get(
-            'steam.dayz_install_path',
-            r'C:\Program Files (x86)\Steam\steamapps\common\DayZ'
+        """Путь к steamapps\\workshop\\content\\221100."""
+        return resolve_workshop_content_root(
+            self.config.get(
+                'steam.workshop_path',
+                r'C:\Program Files (x86)\Steam\steamapps\common\DayZ\!Workshop',
+            ),
+            self.config.get(
+                'steam.dayz_install_path',
+                r'C:\Program Files (x86)\Steam\steamapps\common\DayZ',
+            ),
         )
-        dayz_dir = Path(dayz_install_path)
-        try:
-            candidates.append(dayz_dir.parent.parent / 'workshop' / 'content' / WORKSHOP_APP_ID)
-        except IndexError:
-            pass
-
-        for candidate in candidates:
-            if candidate.exists():
-                return candidate
-
-        return candidates[0] if candidates else workshop_alias_root
 
     def _extract_workshop_id_from_path(self, path: Path) -> Optional[str]:
         """Вытащить Workshop ID из resolved пути вида ...\workshop\content\221100\<ID>."""
@@ -225,6 +212,7 @@ class ModSync:
         workshop_path = self.config.get('steam.workshop_path', r'C:\Program Files (x86)\Steam\steamapps\common\DayZ\!Workshop')
         server_dir = Path(server['path'])
         keys_dir = server_dir / server.get('keys_dir', 'keys')
+        workshop_content = self._get_workshop_content_root()
 
         # Создать папку ключей
         keys_dir.mkdir(parents=True, exist_ok=True)
@@ -243,6 +231,10 @@ class ModSync:
                 self._log(
                     f"  [~] {mod_name} — no Workshop ID resolved, auto-update disabled ({mod_entry.get('reason')})",
                     "WARN"
+                )
+            elif mod_entry.get('id'):
+                self._ensure_workshop_symlink(
+                    mod_name, str(mod_entry['id']), workshop_mod, workshop_content
                 )
 
             # Если мод уже есть в папке сервера (симлинк или папка) — пропускаем
@@ -293,40 +285,63 @@ class ModSync:
         """Legacy alias for compatibility with existing call sites."""
         return self.get_effective_mods(server)
 
-    def _ensure_workshop_symlink(self, mod_name: str, mod_id: str, workshop_mod: Path, workshop_content: Path):
-        """Создать/проверить симлинк !Workshop\@ModName → steamapps\workshop\content\221100\<ID>"""
-        if workshop_mod.exists():
-            # Проверить что симлинк указывает на правильный ID
-            try:
-                target = workshop_mod.resolve()
-                if str(mod_id) in str(target):
-                    self._log(f"  [=] {mod_name} — Workshop symlink OK", "DEBUG")
-                    return
-                else:
-                    self._log(f"  [~] {mod_name} — Workshop symlink points elsewhere, recreating", "WARN")
-                    workshop_mod.unlink()
-            except:
-                pass  # Не симлинк, обычная папка — пропускаем
+    def _remove_workshop_alias(self, path: Path) -> None:
+        """Remove !Workshop junction without deleting Workshop content target."""
+        if not path.exists():
+            return
+        result = subprocess.run(
+            ['cmd', '/c', 'rmdir', str(path)],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return
+        backup = path.parent / f"{path.name}.stale"
+        if backup.exists():
+            shutil.rmtree(backup, ignore_errors=True)
+        self._log(
+            f"  [~] {path.name} — not a junction; moving stale copy to {backup.name}",
+            "WARN",
+        )
+        shutil.move(str(path), str(backup))
 
-        # Найти папку с ID в workshop_content
+    def _ensure_workshop_symlink(self, mod_name: str, mod_id: str, workshop_mod: Path, workshop_content: Path):
+        """Создать/проверить junction !Workshop\\@ModName → steamapps\\workshop\\content\\221100\\<ID>"""
         mod_source = workshop_content / mod_id
         if not mod_source.exists():
             self._log(f"  [!] {mod_name} ({mod_id}) — NOT FOUND in Workshop content!", "WARN")
             return
 
         try:
-            # mklink /J "!Workshop\@ModName" "steamapps\workshop\content\221100\<ID>"
+            expected = mod_source.resolve()
+        except OSError:
+            expected = mod_source
+
+        if workshop_mod.exists():
+            try:
+                if workshop_mod.resolve() == expected:
+                    self._log(f"  [=] {mod_name} — Workshop junction OK → {mod_id}", "DEBUG")
+                    return
+            except OSError:
+                pass
+            self._log(
+                f"  [~] {mod_name} — !Workshop entry does not point at content\\{mod_id}, recreating junction",
+                "WARN",
+            )
+            self._remove_workshop_alias(workshop_mod)
+
+        try:
             cmd = f'mklink /J "{workshop_mod}" "{mod_source}"'
-            result = subprocess.run(
+            subprocess.run(
                 cmd,
                 shell=True,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
-            self._log(f"  [+] {mod_name} — Workshop symlink created → {mod_id}", "DEBUG")
+            self._log(f"  [+] {mod_name} — Workshop junction → content\\{mod_id}", "INFO")
         except subprocess.CalledProcessError as e:
-            self._log(f"  [!] {mod_name} — ERROR creating symlink: {e.stderr}", "ERROR")
+            self._log(f"  [!] {mod_name} — ERROR creating junction: {e.stderr}", "ERROR")
         except Exception as e:
             self._log(f"  [!] {mod_name} — ERROR: {e}", "ERROR")
 

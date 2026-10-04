@@ -38,6 +38,8 @@ Start/stop servers, auto-update mods, monitor players — all from a browser.
 |-------|-------------|
 | `auth.api_key` | Any password you choose |
 | `steam.steamcmd_path` | Path to steamcmd.exe |
+| `steam.dayz_install_path` | `…\\steamapps\\common\\DayZ` (see [CONFIG](docs/CONFIG.md)) |
+| `steam.workshop_path` | `…\\DayZ\\!Workshop` |
 | `servers[].path` | Path to your DayZ server folder |
 | `servers[].rcon_password` | Same as in BEServer_*.cfg |
 

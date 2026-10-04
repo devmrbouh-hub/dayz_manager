@@ -38,6 +38,8 @@
 |------|-------------|
 | `auth.api_key` | Любой пароль на ваш выбор |
 | `steam.steamcmd_path` | Путь к steamcmd.exe |
+| `steam.dayz_install_path` | `…\\steamapps\\common\\DayZ` (см. [CONFIG](docs/ru/CONFIG.md)) |
+| `steam.workshop_path` | `…\\DayZ\\!Workshop` |
 | `servers[].path` | Путь к папке DayZ сервера |
 | `servers[].rcon_password` | Как в BEServer_*.cfg |
 

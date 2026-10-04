@@ -6,8 +6,8 @@
     "password": "your_steam_password",
     "guard_code": null,
     "steamcmd_path": "D:\\path\\to\\steamcmd\\steamcmd.exe",
-    "dayz_install_path": "D:\\path\\to\\Steam",
-    "workshop_path": "D:\\path\\to\\DayZ\\!Workshop"
+    "dayz_install_path": "D:\\path\\to\\Steam\\steamapps\\common\\DayZ",
+    "workshop_path": "D:\\path\\to\\Steam\\steamapps\\common\\DayZ\\!Workshop"
   },
 
   "rcon": {

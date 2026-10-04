@@ -18,6 +18,17 @@
 
 Если `steam.username` / `steam.password` пустые, менеджер читает env.
 
+## Пути Steam (`dayz_install_path` / `workshop_path`)
+
+`+force_install_dir` для SteamCMD должен указывать на **ту же библиотеку Steam**, что и клиентский лаунчер (`steamapps\\workshop\\content\\221100\\<id>`). Менеджер выводит её из конфига:
+
+- **`steam.dayz_install_path`** — папка **клиентского DayZ**: `…\\steamapps\\common\\DayZ`.
+- **`steam.workshop_path`** — `…\\common\\DayZ\\!Workshop` (алиасы `@ModName` → content).
+
+**Не** указывайте в `dayz_install_path` только корень Steam (например `C:\\Program Files (x86)\\Steam`). В старых сборках из этого пути вычислялся `force_install_dir`; для корня библиотеки получалось `C:\\`, SteamCMD обновлял не ту папку, а сервер читал моды через `workshop_path` — в логе «успех», у игроков mismatch версий.
+
+Если ключ не задан, подставляется дефолт `…\\common\\DayZ`. После смены проверьте `logs/manager.log`: `SteamCMD force_install_dir` = ваша библиотека Steam, **не** `C:\\`.
+
 ## Пример структуры
 
 ```json
@@ -28,6 +39,7 @@
     "guard_code": null,
     "auth_mode": "credentials",
     "steamcmd_path": "C:\\steamcmd\\steamcmd.exe",
+    "dayz_install_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ",
     "workshop_path": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\DayZ\\!Workshop"
   },
   "servers": [
@@ -82,7 +94,8 @@
 | Раздел | Поле | Описание | Обязательно |
 |--------|------|----------|-------------|
 | **steam** | steamcmd_path | Путь к `steamcmd.exe` | ✅ |
-| | workshop_path | Корень Workshop content | ✅ |
+| | dayz_install_path | **Папка клиентского DayZ** (`…\\steamapps\\common\\DayZ`), не корень Steam | ✅* |
+| | workshop_path | Каталог `!Workshop` рядом с DayZ | ✅ |
 | | auth_mode | `credentials` или `session` | ❌ |
 | | username/password | Или через env | ❌ |
 | **servers** | id | Уникальный ID | ✅ |
@@ -219,5 +232,5 @@ Cleanup failed-start: если процесс сервера успел стар
 
 Кэши Workshop/hash лежат в `data/`. В frozen EXE-сборке эти файлы находятся рядом с `DayZManager.exe` во внешней директории установки, а не внутри временного PyInstaller bundle.
 
-- **`data/mod_versions.json`** — кэш `time_updated` Workshop. Ключи **`w:{workshop_id}`** (общий для всех `servers[]` на хосте). При загрузке legacy `server_id:mod_id` сливаются в `w:` (максимальный timestamp на mod id). Не коммитить в git; править вручную только если понимаете логику ModCheck.
+- **`data/mod_versions.json`** — кэш `time_updated` Workshop. Ключи **`w:{workshop_id}`** (общий для всех `servers[]` на хосте). При загрузке legacy `server_id:mod_id` сливаются в `w:` (**минимальный** timestamp на mod id). Не коммитить в git; править вручную только если понимаете логику ModCheck.
 - **`data/mod_hashes.json`** — вспомогательный/legacy кэш хэшей (не используется для решений ModCheck).

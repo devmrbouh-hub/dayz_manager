@@ -8,6 +8,7 @@
 - [ ] SteamCMD and DayZ server installed
 - [ ] `config/config.json`: `api_key` ≠ `change_this_api_key`
 - [ ] `steam.steamcmd_path` is correct
+- [ ] `steam.dayz_install_path` = `…\\steamapps\\common\\DayZ` (not Steam library root only); `steam.workshop_path` = `…\\DayZ\\!Workshop`
 - [ ] `servers[].path`, ports, `profiles`, `mods_file`
 - [ ] BattlEye cfg in `Instance_X\BattlEye\` matches RCON in config
 - [ ] `mod_list.txt` filled in
