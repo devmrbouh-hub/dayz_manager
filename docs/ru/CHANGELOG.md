@@ -2,6 +2,15 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
+## 2026-05-31 — v1.0.3 Исправление общего кэша модов
+
+- **ModCheck / SteamCMD:** миграция legacy-ключей per-server теперь берёт **минимальный** `time_updated` на Workshop ID (не max), чтобы завышенная запись одного сервера не блокировала обновления для всех на общей папке `content/221100/<id>`.
+- **Устаревшие файлы:** сравнение `time_updated` Steam с max mtime файлов в Workshop-папке; загрузка, если кэш «актуален», а файлы старее метаданных Workshop.
+- **Fallback при сбое SteamCMD:** локальная папка Workshop принимается для junction/sync (WARN), но **`mod_versions.json` не обновляется**; scheduler/pre-start не вызывают `mark_mod_version_synced` — ModCheck повторит попытку.
+- **Кэш на диске:** lock при записи `mod_versions.json`; перечитывание перед проверкой/скачиванием (безопасно при параллельном ModCheck по серверам).
+
+---
+
 ## 2026-05-31 — v1.0.2 UI и исправления host-manager
 
 - Панель логов менеджера свёрнута по умолчанию (`<details>`); разворачивается по клику.
@@ -12,9 +21,9 @@
 
 ## 2026-05-31 — Общий кэш Workshop и поздний RPT
 
-- `data/mod_versions.json` использует общие ключи `w:{workshop_id}` (не per-server); legacy `server_id:mod_id` мигрируются при загрузке (берётся максимальный `time_updated`).
-- ModCheck / `download_mod` пропускают SteamCMD, если remote-версия совпадает с кэшем и `steamapps/workshop/content/221100/<id>` не пуста.
-- При сбое SteamCMD, если папка Workshop на диске есть, загрузка считается успешной с WARN и кэш обновляется (обновление лаунчером/вручную).
+- `data/mod_versions.json` использует общие ключи `w:{workshop_id}` (не per-server); legacy `server_id:mod_id` мигрируются при загрузке (**минимальный** `time_updated` на мод — консервативное слияние для общей Workshop-папки).
+- ModCheck / `download_mod` пропускают SteamCMD, если remote совпадает с кэшем, папка content не пуста **и** файлы не старее метаданных Workshop (max mtime в папке).
+- При сбое SteamCMD, если папка Workshop на диске есть, загрузка считается успешной с WARN **без** обновления кэша версий (ModCheck повторяет, пока SteamCMD не отработает).
 - `ServerRptWatcher` ищет RPT до `max(60, settings.startup_ready_timeout_sec)`; WARN на 30 с, но поиск продолжается; поздний RPT подключается, `rpt_not_found` снимается.
 
 ---

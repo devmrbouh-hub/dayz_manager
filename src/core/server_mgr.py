@@ -327,7 +327,7 @@ class ServerManager:
                     )
                     continue
                 success = steamcmd.download_mod(mod_id, mod_name)
-                if success:
+                if success and steamcmd.should_sync_mod_cache_after_download():
                     steamcmd.mark_mod_version_synced(server_id, mod_id)
                 else:
                     failed_downloads.append(mod_name or mod_id)

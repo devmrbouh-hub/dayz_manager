@@ -715,7 +715,7 @@ class Scheduler:
                     mod_id,
                     mod_name
                 )
-                if success:
+                if success and steamcmd.should_sync_mod_cache_after_download():
                     for server_id in group['server_ids']:
                         if mod_id in group['server_mod_ids'].get(server_id, set()):
                             await loop.run_in_executor(

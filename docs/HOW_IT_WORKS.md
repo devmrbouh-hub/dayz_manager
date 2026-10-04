@@ -75,11 +75,11 @@ Only **numeric** IDs get auto-update; otherwise mod is in launch but not updated
 
 **ModCheck** (interval `scheduler.mod_check_interval`):
 
-1. Compare `time_updated` via Steam Web API (`data/mod_versions.json`). Cache keys are **`w:{workshop_id}`** — one entry per Workshop item for all servers on the host (shared `content/221100/<id>` folder). Legacy `server_id:mod_id` keys are migrated on manager start.
-2. Detection does **not** hash local files; it trusts Steam API metadata vs the cache.
+1. Compare `time_updated` via Steam Web API (`data/mod_versions.json`). Cache keys are **`w:{workshop_id}`** — one entry per Workshop item for all servers on the host (shared `content/221100/<id>` folder). Legacy `server_id:mod_id` keys are migrated on load (**minimum** timestamp per mod).
+2. Detection compares API metadata to the cache **and** (when needed) newest file mtime in the Workshop content folder vs `time_updated` (no PBO hashing).
 3. On updates: RCON warning → shutdown (or force-stop) → SteamCMD download → junction/keys → restart if was online.
-4. **Skip / fallback:** if cache matches Workshop and the content folder is non-empty, SteamCMD is skipped; if SteamCMD fails but the folder exists, the manager accepts on-disk content (WARN) and refreshes the cache.
-5. If an admin updated mods via the **Steam client** but `mod_versions.json` is still stale, ModCheck may still schedule a cycle until the cache is updated; skip/fallback reduce redundant SteamCMD when the cache is current or CMD fails.
+4. **Skip / fallback:** skip SteamCMD when cache matches Workshop, the folder is non-empty, and files do not look older than Workshop metadata; if SteamCMD fails but the folder exists, accept on-disk content (WARN) **without** updating the cache so ModCheck can retry.
+5. If an admin updated mods via the **Steam client**, ModCheck may still schedule a cycle until a successful SteamCMD sync updates the cache.
 
 **ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, copy `.bikey` to `keys/`.
 

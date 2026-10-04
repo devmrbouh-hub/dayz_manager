@@ -2,6 +2,15 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-05-31 — v1.0.3 Shared mod cache fix
+
+- **ModCheck / SteamCMD:** legacy per-server cache migration now uses **minimum** `time_updated` per Workshop ID (not max), so one server’s inflated cache entry no longer blocks updates for all hosts sharing `content/221100/<id>`.
+- **Stale content detection:** compares Steam `time_updated` with newest file mtime in the Workshop folder; triggers download when cache looks current but files are older.
+- **Failed SteamCMD fallback:** accepts existing on-disk Workshop folder for junction/sync (WARN) but **does not** bump `mod_versions.json`; scheduler/pre-start skip `mark_mod_version_synced` on that path so ModCheck can retry.
+- **Cache I/O:** thread lock on `mod_versions.json`; reload from disk before mod checks and downloads (safe with parallel ModCheck per server).
+
+---
+
 ## 2026-05-31 — v1.0.2 UI and host fixes
 
 - Manager logs panel collapsed by default (`<details>`); expand on click.
@@ -12,9 +21,9 @@
 
 ## 2026-05-31 — Shared Workshop cache and late RPT
 
-- `data/mod_versions.json` now uses shared keys `w:{workshop_id}` (not per-server); legacy `server_id:mod_id` entries are migrated on load (max `time_updated` wins).
-- ModCheck / `download_mod` skip SteamCMD when the remote version matches the cache and `steamapps/workshop/content/221100/<id>` is non-empty.
-- If SteamCMD fails but the Workshop content folder exists on disk, the download is treated as success with WARN and the cache is refreshed (launcher/manual updates).
+- `data/mod_versions.json` now uses shared keys `w:{workshop_id}` (not per-server); legacy `server_id:mod_id` entries are migrated on load (**minimum** `time_updated` per mod — conservative merge for shared Workshop folders).
+- ModCheck / `download_mod` skip SteamCMD when the remote version matches the cache, the content folder is non-empty, **and** local files are not older than Workshop metadata (newest file mtime).
+- If SteamCMD fails but the Workshop content folder exists on disk, the download is treated as success with WARN **without** updating the version cache (ModCheck retries until SteamCMD succeeds).
 - `ServerRptWatcher` keeps searching for RPT until `max(60, settings.startup_ready_timeout_sec)`; warns at 30s but continues; attaches late RPT and clears `rpt_not_found` when the file appears.
 
 ---

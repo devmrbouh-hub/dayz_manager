@@ -4,6 +4,7 @@ import os
 import subprocess
 import asyncio
 import json
+import threading
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -14,6 +15,7 @@ from src.utils.http import urlopen as http_urlopen
 
 MOD_VERSIONS_FILE = get_runtime_data_file('mod_versions.json')
 WORKSHOP_CACHE_PREFIX = 'w:'
+_MOD_VERSIONS_LOCK = threading.Lock()
 
 
 class SteamCMD:
@@ -29,7 +31,9 @@ class SteamCMD:
         self.guard_code = config.get('steam.guard_code') or os.getenv('DAYZ_STEAM_GUARD_CODE')
         self.auth_mode = (config.get('steam.auth_mode', 'session') or 'session').strip().lower()
         self.logger = logger
-        self.mod_versions = self._load_mod_versions()
+        self._sync_mod_cache_after_download = True
+        with _MOD_VERSIONS_LOCK:
+            self.mod_versions = self._read_mod_versions_dict()
 
     @staticmethod
     def _workshop_cache_key(mod_id: str) -> str:
@@ -56,7 +60,13 @@ class SteamCMD:
                     mod_id = candidate
 
             if mod_id:
-                merged[mod_id] = max(merged.get(mod_id, 0), timestamp)
+                # Conservative merge: one server's inflated cache (init without download)
+                # must not hide updates for all servers sharing the same Workshop folder.
+                prev = merged.get(mod_id)
+                if prev is None:
+                    merged[mod_id] = timestamp
+                else:
+                    merged[mod_id] = min(prev, timestamp)
 
         return {self._workshop_cache_key(mod_id): ts for mod_id, ts in merged.items()}
 
@@ -76,8 +86,13 @@ class SteamCMD:
         mod_id = str(mod_id or '').strip()
         if not mod_id.isdigit():
             return
-        self.mod_versions[self._workshop_cache_key(mod_id)] = int(remote_time)
-        self._save_mod_versions()
+        key = self._workshop_cache_key(mod_id)
+        value = int(remote_time)
+        with _MOD_VERSIONS_LOCK:
+            merged = self._read_mod_versions_dict()
+            merged[key] = value
+            self._write_mod_versions_dict(merged)
+            self.mod_versions = merged
 
     def is_mod_present_locally(self, mod_id: str, workshop_id: int = 221100) -> bool:
         """True if Workshop content folder exists and is non-empty."""
@@ -88,6 +103,23 @@ class SteamCMD:
             return any(mod_path.iterdir())
         except OSError:
             return False
+
+    def _get_local_content_timestamp(self, mod_id: str, workshop_id: int = 221100) -> Optional[int]:
+        """Newest file mtime inside Workshop content (hint that files predate a Workshop publish)."""
+        mod_path = self.get_mod_path(mod_id, workshop_id)
+        if not mod_path.is_dir():
+            return None
+        newest = None
+        try:
+            for path in mod_path.rglob('*'):
+                if not path.is_file():
+                    continue
+                mtime = int(path.stat().st_mtime)
+                if newest is None or mtime > newest:
+                    newest = mtime
+        except OSError:
+            return None
+        return newest
 
     def _log(self, message: str, level: str = "INFO"):
         if self.logger:
@@ -160,7 +192,7 @@ class SteamCMD:
 
         return candidates[0] if candidates else workshop_root
 
-    def _load_mod_versions(self) -> dict:
+    def _read_mod_versions_dict(self) -> dict:
         if MOD_VERSIONS_FILE.exists():
             try:
                 with MOD_VERSIONS_FILE.open('r', encoding='utf-8') as f:
@@ -171,10 +203,22 @@ class SteamCMD:
                 return {}
         return {}
 
-    def _save_mod_versions(self):
+    def _write_mod_versions_dict(self, data: dict):
         MOD_VERSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
         with MOD_VERSIONS_FILE.open('w', encoding='utf-8') as f:
-            json.dump(self.mod_versions, f, indent=2, ensure_ascii=False)
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+    def _refresh_mod_versions_from_disk(self):
+        with _MOD_VERSIONS_LOCK:
+            self.mod_versions = self._read_mod_versions_dict()
+
+    def _save_mod_versions(self):
+        with _MOD_VERSIONS_LOCK:
+            self._write_mod_versions_dict(self.mod_versions)
+
+    def should_sync_mod_cache_after_download(self) -> bool:
+        """False when download fell back to stale on-disk content (do not bump shared cache)."""
+        return self._sync_mod_cache_after_download
 
     def _get_remote_mod_update_time(self, mod_id: str) -> Optional[int]:
         """Получить time_updated мода из Steam Web API."""
@@ -213,6 +257,7 @@ class SteamCMD:
         label = f"{mod_name} ({mod_id})" if mod_name else str(mod_id)
 
         try:
+            self._refresh_mod_versions_from_disk()
             remote_time = self._get_remote_mod_update_time(mod_id)
             if remote_time is None:
                 self._log(f"Workshop details unavailable for {label}", "DEBUG")
@@ -221,6 +266,14 @@ class SteamCMD:
             cached_time = self._get_cached_mod_time(mod_id)
             if cached_time is None:
                 if self.is_mod_present_locally(mod_id):
+                    local_ts = self._get_local_content_timestamp(mod_id)
+                    if local_ts is not None and int(remote_time) > int(local_ts):
+                        self._log(
+                            f"Workshop update detected for {label} "
+                            f"(remote newer than local Workshop files)",
+                            "INFO"
+                        )
+                        return True
                     self._set_cached_mod_time(mod_id, remote_time)
                     self._log(
                         f"Workshop version cached for {label} from existing local content",
@@ -242,6 +295,15 @@ class SteamCMD:
                         "DEBUG"
                     )
                 self._log(f"Workshop update detected for {label}", "INFO")
+                return True
+
+            local_ts = self._get_local_content_timestamp(mod_id)
+            if local_ts is not None and int(remote_time) > int(local_ts):
+                self._log(
+                    f"Workshop update detected for {label} "
+                    f"(cache current but Workshop files on disk look older)",
+                    "INFO"
+                )
                 return True
 
             return False
@@ -316,6 +378,8 @@ class SteamCMD:
         label = f"{mod_name} ({mod_id})" if mod_name else mod_id
 
         try:
+            self._sync_mod_cache_after_download = True
+            self._refresh_mod_versions_from_disk()
             remote_time = self._get_remote_mod_update_time(mod_id)
             cached_time = self._get_cached_mod_time(mod_id)
             if (
@@ -324,11 +388,18 @@ class SteamCMD:
                 and int(remote_time) <= int(cached_time)
                 and self.is_mod_present_locally(mod_id, workshop_id)
             ):
-                self._log(
-                    f"Mod {label} already present in Workshop content, download skipped",
-                    "INFO"
-                )
-                return True
+                local_ts = self._get_local_content_timestamp(mod_id, workshop_id)
+                if local_ts is not None and int(remote_time) > int(local_ts):
+                    self._log(
+                        f"Mod {label} cache matches Workshop but files look older; downloading",
+                        "INFO"
+                    )
+                else:
+                    self._log(
+                        f"Mod {label} already present in Workshop content, download skipped",
+                        "INFO"
+                    )
+                    return True
 
             self._log(f"Downloading mod {label}...", "INFO")
 
@@ -390,11 +461,11 @@ class SteamCMD:
 
                 if self.is_mod_present_locally(mod_id, workshop_id):
                     self._log(
-                        f"Mod {label} download failed, using existing Workshop content on disk",
+                        f"Mod {label} download failed, using existing Workshop content on disk "
+                        f"(version cache unchanged so ModCheck can retry)",
                         "WARN"
                     )
-                    if remote_time is not None:
-                        self._set_cached_mod_time(mod_id, remote_time)
+                    self._sync_mod_cache_after_download = False
                     return True
 
                 return False

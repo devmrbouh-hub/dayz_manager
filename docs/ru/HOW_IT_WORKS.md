@@ -75,11 +75,11 @@ POST /api/servers/{id}/start
 
 **ModCheck** (интервал `scheduler.mod_check_interval`):
 
-1. Сравнить `time_updated` через Steam Web API (`data/mod_versions.json`). Ключи кэша — **`w:{workshop_id}`** (одна запись на Workshop-айтем для всех серверов на хосте, общая папка `content/221100/<id>`). Legacy `server_id:mod_id` мигрируются при старте менеджера.
-2. Детекция **не** сравнивает хэши файлов на диске — только метаданные Steam API vs кэш.
+1. Сравнить `time_updated` через Steam Web API (`data/mod_versions.json`). Ключи кэша — **`w:{workshop_id}`** (одна запись на Workshop-айтем для всех серверов на хосте, общая папка `content/221100/<id>`). Legacy `server_id:mod_id` мигрируются при загрузке (**минимальная** метка на мод).
+2. Детекция сравнивает метаданные API с кэшем **и** при необходимости max mtime файлов в Workshop-папке с `time_updated` (без хэшей PBO).
 3. При обновлениях: RCON-предупреждение → shutdown (или force-stop) → SteamCMD download → junction/keys → перезапуск, если сервер был online.
-4. **Skip / fallback:** если кэш совпадает с Workshop и папка content не пуста — SteamCMD не вызывается; при сбое SteamCMD, но наличии папки на диске — принимается локальный контент (WARN), кэш обновляется.
-5. Если админ обновил моды **клиентским Steam**, а `mod_versions.json` устарел — ModCheck может всё ещё запланировать цикл, пока кэш не обновится; skip/fallback уменьшают лишний SteamCMD при актуальном кэше или сбое CMD.
+4. **Skip / fallback:** SteamCMD не вызывается, если кэш совпадает с Workshop, папка не пуста и файлы не выглядят старее метаданных Workshop; при сбое SteamCMD, но наличии папки — принимается локальный контент (WARN) **без** обновления кэша, чтобы ModCheck повторил загрузку.
+5. Если админ обновил моды **клиентским Steam**, ModCheck может запланировать цикл, пока успешный SteamCMD не обновит кэш.
 
 **ModSync:** junction `server\@Mod` → `!Workshop\@Mod`, копирование `.bikey` в `keys/`.
 
