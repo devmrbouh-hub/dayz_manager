@@ -383,11 +383,14 @@ class RconClient:
             rcon_cfg['timeout'],
         )
 
-    def kick_all_players(self, server: dict, reason: str = 'Planned restart') -> int:
-        """Кикнуть всех онлайн-игроков. Возвращает число успешных kick."""
+    def kick_all_players(self, server: dict, reason: str = 'Planned restart') -> tuple[int, int]:
+        """Кикнуть всех онлайн-игроков. Возвращает (успешных kick, всего в списке players).
+
+        Если список players получить не удалось, возвращает (0, -1).
+        """
         rcon_cfg = self._get_server_rcon_config(server)
         if not rcon_cfg['enabled']:
-            return 0
+            return 0, -1
 
         success, output, _ = self._execute(
             rcon_cfg['host'],
@@ -401,12 +404,12 @@ class RconClient:
                 f"Failed to list players for kick on {server['id']}: {output[:300]}",
                 "WARN",
             )
-            return 0
+            return 0, -1
 
         player_ids = self.parse_player_ids(output)
         if not player_ids:
             self._log(f"No players online to kick on {server['id']}", "DEBUG")
-            return 0
+            return 0, 0
 
         kicked = 0
         for player_id in player_ids:
@@ -416,7 +419,7 @@ class RconClient:
                 self._log(f"Failed to kick player {player_id} on {server['id']}", "WARN")
 
         self._log(f"Kicked {kicked}/{len(player_ids)} players on {server['id']}", "INFO")
-        return kicked
+        return kicked, len(player_ids)
 
     def send_bilingual_say(self, server: dict, ru_message: str, en_message: str) -> bool:
         """Отправить RU и EN сообщения всем игрокам (say -1)."""

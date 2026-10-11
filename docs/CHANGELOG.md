@@ -2,6 +2,13 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-10-11 — v1.0.7 Players refresh and planned kick window
+
+- **Live stats:** shared `_poll_one_server`, per-server RCON lock; `POST /api/servers/{id}/players/refresh` via `asyncio.to_thread`; UI refresh button on each server card.
+- **Planned restart:** kick in **3–5 min** window before slot with per-slot state and 60 s retries; say stages marked only after RCON; safety kick at T-0 if kick did not complete; `kick_all_players` returns `(kicked, total)`.
+
+---
+
 ## 2026-10-04 — v1.0.6 Steam library paths and Workshop junction sync
 
 - **Docs / config:** `steam.dayz_install_path` must be the **DayZ client folder** (`…\\steamapps\\common\\DayZ`), not the Steam library root; host template and CONFIG/RUNBOOK updated (fixes `force_install_dir: C:\\` and mod updates not reaching the server).

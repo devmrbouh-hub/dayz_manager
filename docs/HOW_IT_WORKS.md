@@ -104,11 +104,11 @@ Scheduler checks slots **every 60 s** (`_planned_restart_job`).
 
 | Stage | Action |
 |-------|--------|
-| T-30, T-15, T-10 | RCON say RU, then EN |
-| T-5 | say RU+EN → pause 5 s → `#lock` → kick all online |
-| T-0 | `execute_planned_restart` (stop → prepare → start) |
+| T-30, T-15, T-10 | RCON say RU, then EN (marked only after successful RCON) |
+| T-5…T-3 | **Kick window:** first entry — say RU+EN → pause 5 s → `#lock` → kick all online; retries every 60 s while still in window if RCON/list/kick failed or kick was partial (`Kicked N/M` in manager log) |
+| T-0 | `execute_planned_restart` (stop → prepare → start); safety `kick_all` if kick for this slot did not complete |
 
-Skipped on `SERVER_LOCK` or unavailable RCON (logged).  
+While `SERVER_LOCK` is active, the whole planned job for that server is skipped (no kick in window). Unavailable RCON in the kick window is logged (WARN) and retried on the next tick.  
 **Auto restart** (WatchDog) and **Planned restart** are independent.
 
 ## CRON restarts (legacy)
@@ -145,7 +145,7 @@ Module `ServerRptWatcher` — one background thread per server, reads `{path}/{p
 - **RPT discovery:** search does not stop at 30s; at 30s the UI may show `rpt_not_found` while the watcher keeps looking until `max(60, settings.startup_ready_timeout_sec)`. A late-created RPT is attached and the warning clears. Fallback accepts the newest RPT within a grace window (~120s mtime) when the file appears slowly after start.
 - **Lazy attach:** DayZ already running — attach latest RPT on `GET /api/servers`.
 - Console: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); start only via manager.
-- Live stats: FPS from RPT; players — RCON `players` every ~5 s; chat — Expansion ExpLog tail.
+- Live stats: FPS from RPT; players — RCON `players` every ~5 s (quiet on success; no per-poll lines in manager log); **Refresh players** on the card forces one poll; chat — Expansion ExpLog tail.
 
 ## Web UI
 
@@ -156,6 +156,7 @@ Module `ServerRptWatcher` — one background thread per server, reads `{path}/{p
 | Server card | Start / Stop / Restart; STOPPED / STARTING / READY |
 | **Server log (RPT)** | Live tail via WS, append lines; `syncServers` does not recreate card |
 | **Restart** block | Auto restart, Planned restart, interval, Save, Next restart |
+| **Players online** | List + refresh button (POST players/refresh) |
 | Add Server | ID, name, path, port, RCON — no restart settings |
 | Live Logs | **Manager** logs (not DayZ) |
 

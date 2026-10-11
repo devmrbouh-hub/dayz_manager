@@ -707,10 +707,23 @@ section {
     font-size: 13px;
 }
 
-.server-players-details summary {
+.server-players-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     cursor: pointer;
     color: var(--accent-blue);
     user-select: none;
+    list-style: none;
+}
+
+.server-players-details summary.server-players-summary::-webkit-details-marker {
+    display: none;
+}
+
+.server-players-refresh {
+    flex-shrink: 0;
 }
 
 .server-players-list {

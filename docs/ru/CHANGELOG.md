@@ -2,6 +2,13 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
+## 2026-10-11 — v1.0.7 Обновление игроков и окно кика
+
+- **Live stats:** общий `_poll_one_server`, lock RCON на сервер; `POST /api/servers/{id}/players/refresh` через `asyncio.to_thread`; кнопка обновления на карточке сервера.
+- **Плановый рестарт:** кик в окне **3–5 мин** до слота, состояние по слоту и повторы каждые 60 с; say-этапы отмечаются после RCON; страховочный кик на T-0; `kick_all_players` возвращает `(kicked, total)`.
+
+---
+
 ## 2026-10-04 — v1.0.6 Пути Steam и junction в ModSync
 
 - **Документация / конфиг:** `steam.dayz_install_path` — папка **клиентского DayZ** (`…\\steamapps\\common\\DayZ`), не корень `…\\Steam`; обновлены шаблон, CONFIG и RUNBOOK (исправляет `force_install_dir: C:\\` и ситуацию «скачивание успешно, игроки на старой версии»).

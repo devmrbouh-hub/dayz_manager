@@ -1,5 +1,6 @@
 """REST API маршруты"""
 
+import asyncio
 import os
 from pathlib import Path
 
@@ -190,6 +191,28 @@ async def get_server_log_tail(server_id: str, request: Request, lines: int = 200
 
     lines = min(max(1, lines), 500)
     return {"lines": watcher.get_tail_lines(server_id, lines)}
+
+
+@router.post("/api/servers/{server_id}/players/refresh")
+async def refresh_server_players(server_id: str, request: Request, _: bool = Depends(require_api_key)):
+    """Force one RCON players poll and return live player list for the server card."""
+    live_stats = getattr(request.app.state, "live_stats", None)
+    if live_stats is None:
+        raise HTTPException(status_code=503, detail="Live stats service unavailable")
+
+    components = get_components(request)
+    server = components["config"].get_server(server_id)
+    if not server:
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
+
+    try:
+        stats = await asyncio.to_thread(live_stats.refresh_server, server_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+    return {"server_id": server_id, **stats}
 
 
 @router.post("/api/servers/{server_id}/rcon/test")

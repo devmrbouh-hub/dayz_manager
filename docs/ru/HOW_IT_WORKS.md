@@ -104,11 +104,11 @@ POST /api/servers/{id}/start
 
 | Этап | Действие |
 |------|----------|
-| T-30, T-15, T-10 | RCON say RU, затем EN |
-| T-5 | say RU+EN → пауза 5 с → `#lock` → kick всех онлайн |
-| T-0 | `execute_planned_restart` (stop → prepare → start) |
+| T-30, T-15, T-10 | RCON say RU, затем EN (отметка этапа только после успешного RCON) |
+| T-5…T-3 | **Окно кика:** первый заход — say RU+EN → пауза 5 с → `#lock` → kick всех онлайн; повтор каждые 60 с, пока в окне, если RCON/список/кик не удались или кик частичный (в логе менеджера `Kicked N/M`) |
+| T-0 | `execute_planned_restart` (stop → prepare → start); страховочный `kick_all`, если кик для слота не завершён |
 
-При `SERVER_LOCK` или недоступном RCON этап пропускается с записью в лог.  
+При активном `SERVER_LOCK` весь planned job для сервера пропускается (кика в окне не будет). Сбой RCON в окне — WARN в логе и повтор на следующем тике.  
 **Auto restart** (WatchDog) и **Planned restart** работают независимо.
 
 ## CRON-рестарты (legacy)
@@ -145,7 +145,7 @@ POST /api/servers/{id}/start
 - **Поиск RPT:** не обрывается на 30 с; на 30 с в UI может быть `rpt_not_found`, watcher ищет до `max(60, settings.startup_ready_timeout_sec)`. Поздний RPT подключается, предупреждение снимается. Fallback — newest RPT в grace window (~120 с mtime), если файл появился с задержкой.
 - **Lazy attach:** DayZ уже запущен (ручной старт / рестарт менеджера) — подхват последнего RPT при `GET /api/servers`.
 - Консоль: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); старт только через менеджер.
-- Live stats: FPS из RPT tail; игроки — RCON `players` каждые ~5 с; чат — Expansion ExpLog tail.
+- Live stats: FPS из RPT tail; игроки — RCON `players` каждые ~5 с (успешный опрос без строк в логе менеджера); кнопка **Обновить список** на карточке — принудительный опрос; чат — Expansion ExpLog tail.
 
 ## Web UI
 
@@ -156,6 +156,7 @@ POST /api/servers/{id}/start
 | Карточка сервера | Start / Stop / Restart; статус STOPPED / STARTING / READY |
 | **Server log (RPT)** | Live tail по WS, append строк; `syncServers` не пересоздаёт карточку |
 | Блок **Restart** | Auto restart, Planned restart, интервал, Save, Next restart |
+| **Игроки онлайн** | Список + кнопка обновления (POST players/refresh) |
 | Add Server | ID, имя, path, port, RCON — без настроек рестарта |
 | Live Logs | Логи **менеджера** (не DayZ) |
 

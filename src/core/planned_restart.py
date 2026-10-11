@@ -15,6 +15,21 @@ LOCK_KICK_STAGE = 5
 RESTART_STAGE = 0
 # Пауза после say на T-5, чтобы игрок успел прочитать перед kick
 KICK_WARN_DELAY_SECONDS = 5
+KICK_WINDOW_MIN_MINUTES = 3
+KICK_WINDOW_MAX_MINUTES = 5
+
+
+def in_kick_window(minutes_until: int) -> bool:
+    """True when planned disconnect (lock+kick) should run (3–5 min before slot)."""
+    return KICK_WINDOW_MIN_MINUTES <= minutes_until <= KICK_WINDOW_MAX_MINUTES
+
+
+def restart_slot_key(interval_minutes: int, now: Optional[datetime] = None) -> Optional[str]:
+    """Stable key for the upcoming restart slot (minute resolution)."""
+    target = compute_next_restart_at(interval_minutes, now)
+    if target is None:
+        return None
+    return target.strftime("%Y-%m-%d %H:%M")
 
 
 def normalize_planned_restart(raw: Optional[dict]) -> dict:

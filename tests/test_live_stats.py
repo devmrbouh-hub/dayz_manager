@@ -6,7 +6,10 @@ from pathlib import Path
 
 import pytest
 
+from unittest.mock import MagicMock
+
 from src.core.rcon_client import RconClient
+from src.core.server_live_stats import ServerLiveStats
 from src.core.server_mgr import ServerManager
 from src.core.server_rpt_watcher import parse_fps_line
 from tests.conftest import FakeConfig, make_server
@@ -58,3 +61,28 @@ def test_parse_players_plain():
     output = "0 192.168.0.1:1234 Mr_BOUH"
     players = RconClient.parse_players(output)
     assert players == [{"id": 0, "name": "Mr_BOUH"}]
+
+
+def test_refresh_server_updates_cache(tmp_path):
+    server = make_server(tmp_path)
+    config = FakeConfig({"settings": {}, "servers": [server]})
+    server_mgr = MagicMock()
+    server_mgr.is_running.return_value = True
+    server_mgr.read_max_players.return_value = 60
+    rcon = MagicMock()
+    rcon._get_server_rcon_config.return_value = {
+        "enabled": True,
+        "host": "127.0.0.1",
+        "port": 2305,
+        "password": "x",
+        "timeout": 10,
+    }
+    rcon.send_players.return_value = "0 192.168.0.1:1234 Alice"
+    rcon.parse_players.return_value = [{"id": 0, "name": "Alice"}]
+
+    live = ServerLiveStats(config, rcon, server_mgr)
+    result = live.refresh_server(server["id"])
+
+    assert result["player_count"] == 1
+    assert result["rcon_players_ok"] is True
+    assert live.get_info(server["id"], True)["players"][0]["name"] == "Alice"

@@ -11,9 +11,11 @@ from src.core.planned_restart import (
     RESTART_STAGE,
     applicable_warning_stages,
     get_stage_messages,
+    in_kick_window,
     is_planned_restart_enabled,
     minutes_until_next_restart,
     normalize_planned_restart,
+    restart_slot_key,
 )
 
 
@@ -47,6 +49,7 @@ class Scheduler:
         self._cron_fired: Set[str] = set()
         self._running = False
         self._planned_locked_servers: Set[str] = set()
+        self._planned_kick_state: dict = {}
 
     def _log(self, message: str, level: str = "INFO"):
         if self.logger:
@@ -256,24 +259,91 @@ class Scheduler:
                 if minutes_until == stage:
                     await self._run_planned_stage(server, stage, now)
 
-            if LOCK_KICK_STAGE < interval and minutes_until == LOCK_KICK_STAGE:
-                await self._run_planned_stage(server, LOCK_KICK_STAGE, now)
+            if LOCK_KICK_STAGE < interval and in_kick_window(minutes_until):
+                await self._run_planned_kick_window(server, interval, minutes_until, now)
 
             if minutes_until == RESTART_STAGE:
                 await self._run_planned_stage(server, RESTART_STAGE, now)
 
         await self._cron_restart_job()
 
-    async def _run_planned_stage(self, server: dict, stage: int, now: datetime):
+    def _kick_state_for_slot(self, server_id: str, slot_key: Optional[str]) -> dict:
+        if not slot_key:
+            return {'slot': None, 'say_done': False, 'kick_done': False}
+        state = self._planned_kick_state.get(server_id)
+        if not state or state.get('slot') != slot_key:
+            state = {'slot': slot_key, 'say_done': False, 'kick_done': False}
+            self._planned_kick_state[server_id] = state
+        return state
+
+    async def _run_planned_kick_window(
+        self,
+        server: dict,
+        interval: int,
+        minutes_until: int,
+        now: datetime,
+    ):
         server_id = server['id']
-        if not self._mark_stage_fired(now, server_id, stage):
+        slot_key = restart_slot_key(interval, now)
+        state = self._kick_state_for_slot(server_id, slot_key)
+        if state.get('kick_done'):
             return
 
-        self._log(f"Planned restart stage T-{stage} for {server_id}", "INFO")
+        loop = asyncio.get_event_loop()
+        if not self.rcon or not self.server_mgr.is_running(server):
+            return
+
+        rcon_status = await loop.run_in_executor(None, self.rcon.test_server, server)
+        if not rcon_status.get('success'):
+            self._log(
+                f"Planned kick window ({minutes_until} min): RCON unavailable for {server_id}",
+                "WARN",
+            )
+            return
+
+        try:
+            if not state.get('say_done'):
+                self._log(
+                    f"Planned restart kick window for {server_id} ({minutes_until} min to restart)",
+                    "INFO",
+                )
+                ru, en = get_stage_messages(LOCK_KICK_STAGE)
+                await loop.run_in_executor(
+                    None,
+                    functools.partial(self.rcon.send_bilingual_say, server, ru, en),
+                )
+                await asyncio.sleep(KICK_WARN_DELAY_SECONDS)
+                state['say_done'] = True
+
+            locked = await loop.run_in_executor(None, self.rcon.lock_server, server)
+            if locked:
+                self._planned_locked_servers.add(server_id)
+
+            kicked, total = await loop.run_in_executor(
+                None,
+                functools.partial(self.rcon.kick_all_players, server, 'Planned restart'),
+            )
+            if total < 0:
+                return
+            if total == 0 or kicked == total:
+                state['kick_done'] = True
+            else:
+                self._log(
+                    f"Planned kick incomplete for {server_id}: {kicked}/{total}, will retry",
+                    "WARN",
+                )
+        except Exception as e:
+            self._log(f"Planned kick window failed for {server_id}: {e}", "ERROR")
+
+    async def _run_planned_stage(self, server: dict, stage: int, now: datetime):
+        server_id = server['id']
         loop = asyncio.get_event_loop()
 
         try:
             if stage == RESTART_STAGE:
+                if not self._mark_stage_fired(now, server_id, stage):
+                    return
+                self._log(f"Planned restart stage T-{stage} for {server_id}", "INFO")
                 await self.execute_planned_restart(server_id)
                 return
 
@@ -288,22 +358,10 @@ class Scheduler:
                 )
                 return
 
-            if stage == LOCK_KICK_STAGE:
-                ru, en = get_stage_messages(stage)
-                await loop.run_in_executor(
-                    None,
-                    functools.partial(self.rcon.send_bilingual_say, server, ru, en),
-                )
-                await asyncio.sleep(KICK_WARN_DELAY_SECONDS)
-                locked = await loop.run_in_executor(None, self.rcon.lock_server, server)
-                if locked:
-                    self._planned_locked_servers.add(server_id)
-                await loop.run_in_executor(
-                    None,
-                    functools.partial(self.rcon.kick_all_players, server, 'Planned restart'),
-                )
+            if not self._mark_stage_fired(now, server_id, stage):
                 return
 
+            self._log(f"Planned restart stage T-{stage} for {server_id}", "INFO")
             ru, en = get_stage_messages(stage)
             await loop.run_in_executor(
                 None,
@@ -332,6 +390,27 @@ class Scheduler:
         self._log(f"Executing planned restart for {server_id}...", "INFO")
         loop = asyncio.get_event_loop()
         unlock_needed = server_id in self._planned_locked_servers
+
+        planned = normalize_planned_restart(server.get('planned_restart'))
+        if planned.get('enabled') and self.rcon and self.server_mgr.is_running(server):
+            interval = int(planned['interval_minutes'])
+            slot_key = restart_slot_key(interval)
+            state = self._planned_kick_state.get(server_id) or {}
+            if (
+                slot_key
+                and state.get('slot') == slot_key
+                and not state.get('kick_done')
+            ):
+                self._log(
+                    f"Planned restart T-0 safety kick for {server_id} (kick window was incomplete)",
+                    "WARN",
+                )
+                kicked, total = await loop.run_in_executor(
+                    None,
+                    functools.partial(self.rcon.kick_all_players, server, 'Planned restart'),
+                )
+                if total >= 0 and (total == 0 or kicked == total):
+                    state['kick_done'] = True
 
         try:
             mods_string = await loop.run_in_executor(None, self.mod_sync.sync_mods, server)

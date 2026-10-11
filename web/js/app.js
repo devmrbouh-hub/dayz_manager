@@ -479,6 +479,42 @@ async function refreshServers() {
     return syncServers();
 }
 
+async function refreshServerPlayers(serverId) {
+    const btn = document.getElementById(`server-players-refresh-${serverId}`);
+    if (btn) {
+        btn.disabled = true;
+    }
+    try {
+        const response = await fetch(`${API_URL}/api/servers/${serverId}/players/refresh`, {
+            method: 'POST',
+            headers: {
+                'X-API-Key': getApiKey(),
+            },
+        });
+        if (!response.ok) {
+            const err = await response.json().catch(() => ({}));
+            throw new Error(err.detail || response.statusText);
+        }
+        const data = await response.json();
+        const prev = lastServerSnapshot[serverId] || { id: serverId };
+        const merged = {
+            ...prev,
+            player_count: data.player_count,
+            players: data.players,
+            rcon_players_ok: data.rcon_players_ok,
+            max_players: data.max_players ?? prev.max_players,
+        };
+        updateServerCard(merged);
+    } catch (error) {
+        console.error('Failed to refresh players', error);
+        alert(error.message || t('card.playersRefreshFailed'));
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+        }
+    }
+}
+
 function createServerCard(server) {
     const card = document.createElement('div');
     card.className = 'server-card is-collapsed';
@@ -554,7 +590,13 @@ function createServerCard(server) {
                 </div>
 
                 <details class="server-players-details" id="server-players-details-${sid}">
-                    <summary data-i18n="card.playersOnline">Players online</summary>
+                    <summary class="server-players-summary">
+                        <span data-i18n="card.playersOnline">Players online</span>
+                        <button type="button" class="btn btn-secondary btn-small server-players-refresh"
+                            id="server-players-refresh-${sid}"
+                            data-i18n="card.playersRefresh"
+                            onclick="event.preventDefault(); refreshServerPlayers('${sid}')">Refresh players</button>
+                    </summary>
                     <ul class="server-players-list" id="server-players-list-${sid}"></ul>
                 </details>
 

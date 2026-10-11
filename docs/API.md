@@ -31,6 +31,7 @@ GET — no key. Roles in `auth.users` are **not used** in REST (reserved for fut
 | GET | `/api/servers/{id}/logs/tail` | Last N RPT lines from buffer (`lines`, max 500) |
 | GET | `/api/servers/{id}/chat` | Chat history (`limit`, `since`) |
 | POST | `/api/servers/{id}/chat/say` | Broadcast text to players (RCON `say -1`) |
+| POST | `/api/servers/{id}/players/refresh` | Force one RCON `players` poll (running server only) |
 
 `GET /api/servers` and `GET /api/servers/{id}` include:
 
@@ -39,7 +40,7 @@ GET — no key. Roles in `auth.users` are **not used** in REST (reserved for fut
 - `startup_phase` — `stopped` | `starting` | `ready`
 - `ready_at`, `current_rpt`, `startup_warning` — see [CONFIG.md](CONFIG.md)
 - `server_fps` — last FPS from RPT (`Average server FPS`, rounded)
-- `player_count`, `max_players`, `players` — online via RCON poll (~5 s)
+- `player_count`, `max_players`, `players` — online via RCON poll (~5 s); use **players/refresh** for an immediate update
 - `rcon_players_ok` — whether player list was fetched
 - `chat_available` — Expansion `ExpLog` directory exists
 
