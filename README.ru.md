@@ -5,7 +5,7 @@
 Надоели батники? Этот менеджер заменяет их удобным веб-интерфейсом.
 Запускайте серверы, обновляйте моды, следите за игроками — всё из браузера.
 
-> 👉 **Просто хотите запустить?** Скачайте EXE → распакуйте → отредактируйте config.json → запустите. [К быстрому старту ↓](#production-хост)
+> 👉 **Просто хотите запустить?** Скачайте EXE → распакуйте → соберите папку сервера → отредактируйте config.json → запустите. [С чего начать ↓](#с-чего-начать)
 
 **Лицензия:** [MIT](LICENSE) · **Скачать:** [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)
 
@@ -25,35 +25,73 @@
 - RCON: say, kick, lock, graceful shutdown
 - Один EXE для Windows — установка не нужна
 
-## Быстрый старт (EXE — рекомендуется)
+Менеджер запускает папку, в которой уже лежат `DayZServer_x64.exe` и `serverDZ.cfg`. Скачивание DayZ Server, выбор модов, экономика, `types.xml` и миссия остаются за пределами этого README.
 
-**Нужно:** DayZ Dedicated Server + SteamCMD + настроенный BattlEye RCON.
+## С чего начать
 
-1. Скачайте архив **`dayz_manager-*-windows-x64.zip`** из [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)
-2. Распакуйте на игровой хост
-3. Скопируйте `config\config-host-template.json` → `config\config.json`
-4. Отредактируйте `config.json` — укажите 4 параметра:
+Оба пути кончаются одним файлом `mod_list.txt` в папке сервера и одной кнопкой Start.
 
-| Поле | Что указать |
+### Моды и bat
+
+Батник менеджер не читает. Вместо строки `-mod=` в bat используйте `mod_list.txt`: те же `@Имя`, по одному на строку, порядок важен.
+
+На каждом Start ModSync собирает `-mod=` из этого списка. Если папка `@Имя` уже лежит рядом с `DayZServer_x64.exe`, менеджер её не трогает, подхватывает мод и копирует `.bikey` в `keys/`. Если папки нет, при известном Workshop id создаёт junction `папка_сервера\@Имя` → `!Workshop\@Имя` → `content\221100\<id>`.
+
+Цифровой id берётся из junction (путь ведёт в `content\221100\<id>`), из `servers[].mods` в `config.json` (`name` и `id`), не из одной строки в `mod_list.txt`. Обычная скопированная папка `@Мод` id для автообновления не даёт. Порядок в `-mod=` задаёт только `mod_list.txt`, не `servers[].mods`.
+
+Если в списке есть имя, но нет ни папки у exe, ни цепочки Workshop, имя всё равно попадёт в `-mod=`, а мод в игре не поднимется — смотрите WARN в `logs/manager.log`.
+
+**Первый раз на машине:** подпишитесь на моды и скачайте их **клиентским лаунчером DayZ** (или через Steam) в **ту же библиотеку**, что в `steam.dayz_install_path` и `steam.workshop_path`. Менеджер лаунчер не заменяет: без файлов в `steamapps\workshop\content\221100\<id>` junction не из чего собрать. После загрузки на Start он свяжет `@Имя` с уже лежащим content и соберёт `-mod=`. **Дальнейшие обновления** — через SteamCMD и ModCheck, если настроены `steam.*`, `servers[].mods` с id и установлен SteamCMD (перед стартом менеджер может один раз докачать отставшие моды, если ModCheck их увидел).
+
+Подробности: [docs/ru/HOW_IT_WORKS.md](docs/ru/HOW_IT_WORKS.md) (ModSync и junction).
+
+### Сервер ещё не запускали
+
+1. В Steam откройте библиотеку, раздел инструментов, и установите **DayZ Server** в свою папку. Менеджер в эту папку не входит.
+2. Создайте `mod_list.txt`: имена модов с `@`, как в Workshop или в гайде, по одному на строку, в порядке загрузки.
+3. Подпишитесь на те же моды в **лаунчере** и дождитесь загрузки (`@Имя` как в `mod_list.txt`). Затем в `config.json` укажите пути `steam.*` и при необходимости пары `name`/`id` в `servers[].mods`, чтобы менеджер связал моды на Start и **обновлял** их через SteamCMD.
+4. Копировать гигабайты модов в папку сервера **не нужно** — это лишь совместимость со старым bat.
+5. Имя хоста в `serverDZ.cfg` поправьте по желанию. Пароль для входа игроков в этом файле необязателен.
+
+### Уже есть папка и bat
+
+Папку не разбирайте и моды переносить не нужно. Откройте bat, найдите `-mod=@CF;@Community-Online-Tools;...` и перепишите те же имена в `mod_list.txt`, каждое с новой строки, в том же порядке. Менеджер подхватит папки `@Мод`, которые уже лежат рядом с exe.
+
+## config.json
+
+1. Скачайте **`dayz_manager-*-windows-x64.zip`** из [Releases](https://github.com/devmrbouh-hub/dayz_manager/releases) и распакуйте.
+2. Скопируйте `config\config-host-template.json` → `config\config.json`.
+
+Шаблон — пример уже разложенного хоста. Для одной новой папки поправьте его так:
+
+| Поле | Что сделать |
 |------|-------------|
-| `auth.api_key` | Любой пароль на ваш выбор |
-| `steam.steamcmd_path` | Путь к steamcmd.exe |
-| `steam.dayz_install_path` | `…\\steamapps\\common\\DayZ` (см. [CONFIG](docs/ru/CONFIG.md)) |
-| `steam.workshop_path` | `…\\DayZ\\!Workshop` |
-| `servers[].path` | Путь к папке DayZ сервера |
-| `servers[].rcon_password` | Как в BEServer_*.cfg |
+| `servers` | Оставить один объект. Второй сервер из шаблона удалить |
+| `servers[].path` | Папка, где лежит `DayZServer_x64.exe` |
+| `servers[].config_file` | Путь к `serverDZ.cfg`, который есть на диске. В шаблоне стоит `Instance_1\\serverDZ.cfg`. У свежей установки Steam файл обычно в корне: `serverDZ.cfg` |
+| `servers[].server_mods` | Очистить, если папки `@ServerMod` нет. Иначе в запуск попадёт `-servermod=@ServerMod` |
+| `servers[].mods_file` | Оставить `mod_list.txt` |
+| `servers[].mods` | Опционально: `{ "name": "@CF", "id": "123456789" }` для Workshop id, когда junction ещё нет. Порядок launch не меняет |
+| `auth.api_key` | Своя строка вместо `change_this_api_key`. С шаблонным значением менеджер не запускается. Её вводят на странице http://127.0.0.1:8000. Это не пароль игроков и не пароль BattlEye. Блок `auth.users` страница не спрашивает |
+| `servers[].rcon_password`, `rcon.password`, `rcon.port`, `rcon_port` | Те же `RConPassword` и `RConPort`, что в вашем `BEServer_*.cfg`. В шаблоне порт 2304, у вас он может быть другим |
 
-5. Запустите `DayZManager.exe`
-6. Откройте **http://127.0.0.1:8000** и введите ваш api_key
+**Минимум для Start**, если `@Мод` уже лежат у exe (как после bat): `servers[].path`, `auth.api_key`, RCON, верный `config_file`.
 
-Готово. Полный справочник конфига: [docs/ru/CONFIG.md](docs/ru/CONFIG.md)
+**Для junction и ModCheck:** `steam.steamcmd_path`, `steam.dayz_install_path`, `steam.workshop_path` и `servers[].mods` с id (или junction после лаунчера). SteamCMD — для **обновлений**, не для первой подписки; первичная загрузка — лаунчер в ту же библиотеку. Пути: [docs/ru/CONFIG.md](docs/ru/CONFIG.md). Junction: [docs/ru/HOW_IT_WORKS.md](docs/ru/HOW_IT_WORKS.md).
+
+При Start менеджер копирует `.bikey` из папки `@Мод` у сервера или из `!Workshop`, куда смотрит junction.
+
+3. Запустите `DayZManager.exe`.
+4. Откройте **http://127.0.0.1:8000** и введите `auth.api_key`.
+
+BattlEye, порты и firewall: [docs/ru/DEPLOY.md](docs/ru/DEPLOY.md). Полный справочник полей: [docs/ru/CONFIG.md](docs/ru/CONFIG.md).
 
 ## Production (хост)
 
 ### Вариант A — скачать Release (без сборки)
 
 1. **[Releases](https://github.com/devmrbouh-hub/dayz_manager/releases)** → архив **`dayz_manager-*-windows-x64.zip`**
-2. Распаковать; `config\config-host-template.json` → `config\config.json`, отредактировать
+2. Распаковать; `config\config-host-template.json` → `config\config.json` и заполнить по разделу [config.json](#configjson)
 3. Запустить `DayZManager.exe` → http://127.0.0.1:8000
 
 Инструкция: [docs/ru/RELEASES.md](docs/ru/RELEASES.md)

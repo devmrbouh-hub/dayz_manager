@@ -20,7 +20,7 @@
 
 ## Пути Steam (`dayz_install_path` / `workshop_path`)
 
-`+force_install_dir` для SteamCMD должен указывать на **ту же библиотеку Steam**, что и клиентский лаунчер (`steamapps\\workshop\\content\\221100\\<id>`). Менеджер выводит её из конфига:
+`+force_install_dir` для SteamCMD должен указывать на **ту же библиотеку Steam**, что и клиентский лаунчер (`steamapps\\workshop\\content\\221100\\<id>`). На пустом хосте моды **сначала** качают лаунчером (подписка Workshop); менеджер не подменяет этот шаг. После появления content на диске ModSync на Start строит junction, а **SteamCMD и ModCheck** обновляют уже скачанные моды — см. [README](../../README.ru.md#моды-и-bat). Менеджер выводит библиотеку из конфига:
 
 - **`steam.dayz_install_path`** — папка **клиентского DayZ**: `…\\steamapps\\common\\DayZ`.
 - **`steam.workshop_path`** — `…\\common\\DayZ\\!Workshop` (алиасы `@ModName` → content).
@@ -104,7 +104,7 @@
 | | rcon_port, rcon_password | BattlEye RCON | ✅ |
 | | profiles | Напр. `Instance_1` | ✅ |
 | | mods_file | Список модов | ❌ (`mod_list.txt`) |
-| | mods | Legacy `{name,id}` fallback | ❌ |
+| | mods | Workshop `id` по `name`; порядок launch — в `mod_list.txt` | ❌ |
 | | auto_restart | WatchDog | ❌ (false) |
 | | hide_console | Скрыть окно консоли DayZ (Windows) | ❌ (true) |
 | | chat_history_hours | История чата в памяти, ч | ❌ (24) |
@@ -205,7 +205,9 @@ Cleanup failed-start: если процесс сервера успел стар
 
 ## mod_list.txt
 
-Главный список модов для launch и ModCheck. Workshop ID определяется по junction; без ID мод запускается, но **не** обновляется через SteamCMD.
+Главный список имён для `-mod=` и ModCheck: одно `@Имя` на строку, порядок важен. Собирают по [README](../../README.ru.md#моды-и-bat) из строки `-mod=` в bat или из гайда/Workshop. На Start ModSync подхватывает уже лежащие `@Мод` у exe или создаёт junction к `!Workshop`, если известен Workshop id.
+
+Цифровой id — из junction (`content\221100\<id>`), из `servers[].mods` (`name` + `id`), не из строки в `mod_list.txt`. Без id и без папки у exe имя попадёт в `-mod=`, мод в игре может не подняться (WARN в логе). Без id автообновление через SteamCMD **не** включается. Если `mod_list.txt` пуст, имена берутся из `servers[].mods` (WARN в логе).
 
 ## RCON (опционально в конфиге)
 

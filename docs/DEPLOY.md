@@ -11,15 +11,17 @@
 
 Production does **not** need Python sources. After code changes: merge → `build.bat` → replace EXE on host.
 
-The built-in web UI/API is intended for **local host administration**. If you open TCP `8000`, keep it on localhost, trusted LAN, VPN, or behind a separate gateway. Do not expose the raw manager UI directly to the public internet.
+The built-in web UI/API is intended for **local host administration**. Do not publish the panel port to the internet. Future access from the admin's own computer is a VPN to the VDS, with the panel listening on `127.0.0.1` only (stage **6** in [ROADMAP.md](ROADMAP.md)). The TCP `8000` firewall rule below is only for a trusted network during setup, not for standing access from the internet.
 
 ## New host (step by step)
+
+The server folder and `mod_list.txt` are in the [README](../README.md#where-to-start). On a new host, download mods with the **client launcher first** into the same Steam library as in config; add SteamCMD for updates (see [Mods and bat](../README.md#mods-and-bat)). You do not have to copy mods into the server folder manually if Workshop paths and ids are configured, or `@Mod` folders already sit next to the exe from a bat. This page is the BattlEye password, ports, and firewall.
 
 ### 1. Software
 
 - Windows Server / Windows 10+
 - DayZ Dedicated Server
-- SteamCMD (e.g. `D:\Servers\MyServer\SteamCMD\steamcmd.exe`)
+- SteamCMD (e.g. `D:\Servers\MyServer\SteamCMD\steamcmd.exe`) — mod updates and ModCheck after the launcher download; not required on the first Start when `@Mod` folders from a bat or Workshop content is already on disk
 - For EXE build: Python 3.10+ on build machine
 
 ```powershell
@@ -38,6 +40,8 @@ RConPort 2305
 RConIP 0.0.0.0
 RestrictRCon 0
 ```
+
+Replace `2305` in the example with your server's `RConPort`. The manager template uses `2304` until you change it.
 
 In `config.json`:
 
@@ -63,7 +67,7 @@ Restart terminal after `setx`. Log in to SteamCMD once manually for session.
 
 ### 4. mod_list.txt
 
-In server folder (`D:\Servers\MyServer\mod_list.txt`) — order and `@Mod` names. Workshop ID from junction (see [HOW_IT_WORKS.md](HOW_IT_WORKS.md)).
+In the server folder (`D:\Servers\MyServer\mod_list.txt`) — order and `@Mod` names for the `-mod=` launch line. From a bat file, copy the list after `-mod=`, one name per line. ModSync on Start lays out folders and junctions: existing `@Mod` next to the exe are left alone; otherwise junctions to `!Workshop` are created when a Workshop id is known. Ids go in `servers[].mods` or come from junctions (see [HOW_IT_WORKS.md](HOW_IT_WORKS.md)).
 
 ### 5. Firewall
 

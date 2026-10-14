@@ -153,7 +153,8 @@ Module `ServerRptWatcher` — one background thread per server, reads `{path}/{p
 
 | Element | Purpose |
 |---------|---------|
-| Server card | Start / Stop / Restart; STOPPED / STARTING / READY |
+| Server card | Start / Stop / Restart; game port; STOPPED / STARTING / READY. Restart continues only after the stop is confirmed |
+| Chat | In-game text: `POST /api/servers/{id}/chat/say` |
 | **Server log (RPT)** | Live tail via WS, append lines; `syncServers` does not recreate card |
 | **Restart** block | Auto restart, Planned restart, interval, Save, Next restart |
 | **Players online** | List + refresh button (POST players/refresh) |

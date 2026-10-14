@@ -19,7 +19,7 @@ If `steam.username` / `steam.password` are empty, the manager reads env vars.
 
 ## Steam paths (`dayz_install_path` / `workshop_path`)
 
-SteamCMD `+force_install_dir` must target the **same Steam library** as the client launcher (where `steamapps\\workshop\\content\\221100\\<id>` lives). The manager derives that library from config:
+SteamCMD `+force_install_dir` must target the **same Steam library** as the client launcher (where `steamapps\\workshop\\content\\221100\\<id>` lives). On an empty host, mods are **downloaded with the launcher first** (Workshop subscribe); the manager does not replace that step. After content exists on disk, ModSync builds junctions on Start and **SteamCMD with ModCheck** update what is already there — see [README](../README.md#mods-and-bat). The manager derives the library from config:
 
 - **`steam.dayz_install_path`** — folder of the **DayZ client install**: `…\\steamapps\\common\\DayZ` (same tree as the Steam game install).
 - **`steam.workshop_path`** — `…\\common\\DayZ\\!Workshop` (junction aliases `@ModName` → Workshop content).
@@ -103,7 +103,7 @@ If the key is omitted, the default is `…\\common\\DayZ` under Program Files (x
 | | rcon_port, rcon_password | BattlEye RCON | Yes |
 | | profiles | e.g. `Instance_1` | Yes |
 | | mods_file | Mod list file | No (`mod_list.txt`) |
-| | mods | Legacy `{name,id}` fallback | No |
+| | mods | Workshop `id` by `name`; launch order is in `mod_list.txt` | No |
 | | auto_restart | WatchDog | No (false) |
 | | hide_console | Hide DayZ console window (Windows) | No (true) |
 | | chat_history_hours | In-memory chat history, hours | No (24) |
@@ -204,7 +204,9 @@ Alternative: `"cron": "0 4 * * *"` (5 fields).
 
 ## mod_list.txt
 
-Primary mod list for launch and ModCheck. Workshop ID from junction; without ID the mod launches but is **not** updated via SteamCMD.
+Primary name list for `-mod=` and ModCheck: one `@Name` per line, order matters. Build it as in the [README](../README.md#mods-and-bat) from the bat `-mod=` line or from your guide/Workshop page. On Start, ModSync uses existing `@Mod` folders next to the exe or creates junctions to `!Workshop` when a Workshop id is known.
+
+The numeric id comes from a junction (`content\221100\<id>`), from `servers[].mods` (`name` + `id`), not from a line in `mod_list.txt`. Without an id and without a folder next to the exe, the name still appears in `-mod=`, but the mod may not load in game (WARN in the log). Without an id, auto-update via SteamCMD is **not** enabled. If `mod_list.txt` is empty, names are taken from `servers[].mods` (WARN in the log).
 
 ## RCON (optional in config)
 

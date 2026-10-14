@@ -12,15 +12,17 @@
 
 На production **не нужны** исходники Python. После изменений в коде: merge → `build.bat` → заменить EXE на хосте.
 
-Встроенный web UI/API рассчитан на **локальное администрирование на хосте**. Если открываете TCP `8000`, оставляйте его для localhost, доверенной LAN, VPN или отдельного gateway. Публиковать raw manager UI напрямую в интернет не рекомендуется.
+Встроенный web UI/API рассчитан на **локальное администрирование на хосте**. Порт панели в интернет не открывать. Будущий вход админа со своего компьютера — VPN до ВДС, панель слушает только `127.0.0.1` (этап **6** в [ROADMAP.md](ROADMAP.md)). Правило брандмауэра на TCP `8000` ниже — только для доверенной сети на время настройки, не для постоянного доступа из интернета.
 
 ## Новый хост (пошагово)
+
+Папка сервера и `mod_list.txt` — по [README](../../README.ru.md#с-чего-начать). На новом хосте моды **сначала** качают клиентским лаунчером в ту же библиотеку Steam, что в конфиге; SteamCMD подключают для обновлений (см. [Моды и bat](../../README.ru.md#моды-и-bat)). Копировать моды в папку сервера вручную не обязательно, если настроены пути Workshop и id, либо рядом с exe уже лежат папки после bat. Здесь пароль BattlEye, порты и firewall.
 
 ### 1. ПО
 
 - Windows Server / Windows 10+
 - DayZ Dedicated Server
-- SteamCMD (например `D:\Servers\MyServer\SteamCMD\steamcmd.exe`)
+- SteamCMD (например `D:\Servers\MyServer\SteamCMD\steamcmd.exe`) — обновления модов и ModCheck после загрузки лаунчером; на первом Start с `@Мод` от bat или уже скачанным Workshop content не обязателен
 - Для сборки EXE: Python 3.10+ на машине разработчика
 
 ```powershell
@@ -39,6 +41,8 @@ RConPort 2305
 RConIP 0.0.0.0
 RestrictRCon 0
 ```
+
+Число 2305 в примере замените на `RConPort` своего сервера. В шаблоне менеджера порт равен 2304, пока вы его не изменили.
 
 В `config.json`:
 
@@ -64,7 +68,7 @@ setx DAYZ_STEAM_PASSWORD "your_password"
 
 ### 4. mod_list.txt
 
-В папке сервера (`D:\Servers\MyServer\mod_list.txt`) — порядок и имена `@Mod`. Workshop ID — из junction (см. [HOW_IT_WORKS.md](HOW_IT_WORKS.md)).
+В папке сервера (`D:\Servers\MyServer\mod_list.txt`) — порядок и имена `@Mod` для строки `-mod=`. Из bat перепишите строку после `-mod=`, по одному имени на строку. Раскладку папок и junction на Start делает ModSync: существующие `@Мод` у exe не заменяются, иначе создаются junction к `!Workshop` при известном Workshop id. Id — в `servers[].mods` или из junction (см. [HOW_IT_WORKS.md](HOW_IT_WORKS.md)).
 
 ### 5. Firewall
 

@@ -12,6 +12,7 @@
 
 | Документ | Содержание |
 |----------|------------|
+| [README](../../README.ru.md#с-чего-начать) | Два входа: сервер с нуля или папка с bat, затем один `config.json` |
 | [RUNBOOK.md](RUNBOOK.md) | Чеклист: BattlEye, Steam, firewall, smoke tests |
 | [DEPLOY.md](DEPLOY.md) | Новый хост, EXE, служба, workflow merge → build → хост |
 | [CONFIG.md](CONFIG.md) | `config.json`, `planned_restart`, переменные окружения |

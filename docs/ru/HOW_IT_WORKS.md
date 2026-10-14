@@ -153,7 +153,8 @@ POST /api/servers/{id}/start
 
 | Элемент | Назначение |
 |---------|------------|
-| Карточка сервера | Start / Stop / Restart; статус STOPPED / STARTING / READY |
+| Карточка сервера | Start / Stop / Restart; игровой порт; статус STOPPED / STARTING / READY. Restart идёт дальше только после подтверждённой остановки |
+| Чат | Текст в игру: `POST /api/servers/{id}/chat/say` |
 | **Server log (RPT)** | Live tail по WS, append строк; `syncServers` не пересоздаёт карточку |
 | Блок **Restart** | Auto restart, Planned restart, интервал, Save, Next restart |
 | **Игроки онлайн** | Список + кнопка обновления (POST players/refresh) |

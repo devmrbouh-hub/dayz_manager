@@ -12,6 +12,7 @@ When you change docs, update **both** [docs/](.) and [docs/ru/](ru/) in the same
 
 | Document | Contents |
 |----------|----------|
+| [README](../README.md#where-to-start) | Two ways in: a first server or an existing bat folder, then one `config.json` |
 | [RUNBOOK.md](RUNBOOK.md) | Checklist: BattlEye, Steam, firewall, smoke tests |
 | [DEPLOY.md](DEPLOY.md) | New host, EXE, service, merge → build → deploy workflow |
 | [CONFIG.md](CONFIG.md) | `config.json`, `planned_restart`, environment variables |

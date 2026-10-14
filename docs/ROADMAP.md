@@ -2,7 +2,7 @@
 
 **Languages:** [English](ROADMAP.md) · [Русский](ru/ROADMAP.md)
 
-**Updated:** 2026-06-21  
+**Updated:** 2026-10-14  
 **Current stage:** **Stage 3 — Admin UI extensions** (Priority 1)
 
 Phases 1–2 are merged into **`main`** — see [CHANGELOG.md](CHANGELOG.md).  
@@ -11,7 +11,7 @@ Planned restart, live stats, chat — verified on reference host (2026-05).
 
 **Item numbering:** `stage.subitem` (e.g. **1.4**, **3.2.3**) — for references in commits and issues.
 
-**Code audit (2026-06-21):** stages **0–2** are complete. Stage **3** is backlog; some related behavior already exists (see table below), but **3.x** items stay unchecked until the target UI/feature ships.
+**Code audit (2026-10-14):** stages **0–2** are complete. In stage **3**, items already in the code are checked: chat `say`, the game port on the card, `#shutdown`, a confirmed stop, and start after that stop. The query port and RCON `save` are still open.
 
 ---
 
@@ -25,6 +25,7 @@ Planned restart, live stats, chat — verified on reference host (2026-05).
 | UI extensions | 3 | **now** | scheduler, RCON presets, config editor |
 | Operations | 4 | — | backup, audit, health, notifications |
 | DayZ-specific | 5 | — | ban list, log search, launch profiles |
+| Admin PC panel | 6 | later | VPN, login, Windows service, restore after a crash |
 
 ### Top 5 for next MVP
 
@@ -135,9 +136,8 @@ See [CHANGELOG.md](CHANGELOG.md) — v1.0.2 and host hardening sections.
 | Item | Already exists | Missing for `[x]` |
 |------|----------------|-------------------|
 | **3.1.1** | Legacy `scheduler.restart_schedule`: `time`, `days`, `cron` — see [CONFIG.md](CONFIG.md) | UI and unified model with `planned_restart` (interval from 00:00) |
-| **3.2.1** | Admin say: `POST /api/servers/{id}/chat/say` (item **1.21**) | General RCON preset panel, not chat-only |
-| **3.3.1** | Game port on card (`:port`) | Query port on card |
-| **3.5** | `restart()` waits for stop; planned restart has say/lock/kick | Single UI flow say → save → shutdown → verify → start |
+| **3.3.1** | Game port on the card (`:port`) | Query port on the card |
+| **3.5.2** | `#shutdown` and a dead-process check exist on Stop and Restart | No separate RCON `save` command in the code |
 
 ### 3.1 Scheduler extensions
 
@@ -146,7 +146,7 @@ See [CHANGELOG.md](CHANGELOG.md) — v1.0.2 and host hardening sections.
 
 ### 3.2 RCON preset commands
 
-- [ ] **3.2.1** `say` from UI
+- [x] **3.2.1** `say` from UI (card chat, `POST /api/servers/{id}/chat/say`)
 - [ ] **3.2.2** `kick`, `ban` from UI
 - [ ] **3.2.3** `save`, `shutdown` from UI
 - [ ] **3.2.4** Mass warnings outside planned restart
@@ -166,11 +166,11 @@ See [CHANGELOG.md](CHANGELOG.md) — v1.0.2 and host hardening sections.
 
 ### 3.5 Safe restart flow
 
-- [ ] **3.5.1** RCON say (warning)
+- [x] **3.5.1** RCON say (warning on planned-restart stages; the card Restart button does not send it)
 - [ ] **3.5.2** RCON save
-- [ ] **3.5.3** RCON shutdown
-- [ ] **3.5.4** Verified stop confirmation
-- [ ] **3.5.5** Start after successful stop
+- [x] **3.5.3** RCON shutdown (`#shutdown` in `stop_server`, otherwise taskkill)
+- [x] **3.5.4** Verified stop (Restart does not continue while the process is alive)
+- [x] **3.5.5** Start after a successful stop
 
 ---
 
@@ -190,6 +190,31 @@ See [CHANGELOG.md](CHANGELOG.md) — v1.0.2 and host hardening sections.
 - [ ] **5.2** Search server and BattlEye logs
 - [ ] **5.3** Launch profiles: prod / test / event
 - [ ] **5.4** Compare configs between servers
+
+---
+
+## Stage 6 — Panel from the admin PC
+
+**Later, not the current stage.** Recorded 2026-10-14.
+
+The manager runs on its own VDS. The panel is open in a browser on the VDS desktop, and the admin sees it through Remote Desktop. The VDS network does not accept the panel port from outside, even though the process listens on `0.0.0.0:8000`.
+
+Target:
+
+- The panel port is not published to the internet. The process listens on `127.0.0.1` only. The VDS firewall has no inbound rule for TCP `8000`. Player game ports stay as they are. RCON is not added to the public internet.
+- The admin reaches the panel only through a VPN between their computer and the VDS (WireGuard or Tailscale). The bookmark is the panel address inside that network, not the public VDS IP. Remote Desktop is not how they open the panel. The VPN encrypts the path.
+- Login is a username and password. The password is stored as a hash. After login the browser gets a cookie with `HttpOnly`, `Secure`, and `SameSite=Strict`. The API-key field leaves the page and `localStorage`. Repeated failed logins are blocked for a while.
+- Without a session everything is closed: the page, static files, server list, logs, chat, settings, and both WebSockets. Today some GET routes and the sockets are open without a key, and CORS is `allow_origins=*`.
+- The manager runs as a Windows service under its own account and starts without an open desktop. A sketch already exists: `install_service.bat` (NSSM), see [DEPLOY.md](DEPLOY.md).
+- Each server has one config field, "should be running". Start sets it and starts the process. Stop clears it and stops the process. A Windows or manager crash does not clear it. After boot the service starts servers with the field set. The same field replaces `.stopped` and the auto-restart toggle.
+
+This does not close player game ports: those stay open for players. An admin computer that is already on the VPN can open the panel until the VPN key or the session is revoked. A logged-in admin can still run local hooks on the VDS.
+
+- [ ] **6.1** Login: username and password, password stored as a hash, cookie `HttpOnly` / `Secure` / `SameSite=Strict`, lockout after repeated failures
+- [ ] **6.2** Session on every request: page, static files, API, WebSocket. Remove CORS `*`. Remove the API key from the browser
+- [ ] **6.3** Panel bound to `127.0.0.1` only. Do not add TCP `8000` to the firewall. The admin bookmark goes through the VPN
+- [ ] **6.4** Manager as a Windows service, without a Remote Desktop session
+- [ ] **6.5** "Should be running" field: Start/Stop change it, a crash does not clear it, the service and WatchDog start those servers
 
 ---
 

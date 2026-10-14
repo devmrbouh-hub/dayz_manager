@@ -2,6 +2,12 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-10-14 — Onboarding
+
+- **README** has two ways into the same Start: a first DayZ Server folder, or an existing folder and bat file. `mod_list.txt` is that mod list. First mod download is via the client launcher into the same Steam library; ModSync on Start and SteamCMD handle linking and updates. The host template is not filled in with only a path and an API key.
+
+---
+
 ## 2026-10-14 — Process control
 
 - **WatchDog** restarts a server only after this manager session has seen it running. The first poll does not start a server that is already stopped. `.stopped` is written only by Stop and by manager Shutdown.
