@@ -258,28 +258,39 @@ class ModSync:
         self._log(f"Mods synced: {result}", "INFO")
         return result
 
-    def _create_symlink(self, mod_name: str, source: Path, target: Path) -> bool:
-        """Создать junction симлинк target → source"""
-        if target.exists():
-            return True
-
+    def _mklink_junction(self, mod_name: str, source: Path, target: Path) -> bool:
+        """Junction через список аргументов. Знаки cmd в пути не принимаем."""
+        for path in (source, target):
+            if any(char in str(path) for char in "&|<>^"):
+                self._log(
+                    f"  [!] {mod_name} — junction path contains a forbidden character",
+                    "ERROR",
+                )
+                return False
         try:
-            cmd = f'mklink /J "{target}" "{source}"'
-            result = subprocess.run(
-                cmd,
-                shell=True,
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(target), str(source)],
+                shell=False,
                 check=True,
                 capture_output=True,
-                text=True
+                text=True,
             )
-            self._log(f"  [+] {mod_name} — symlink created", "DEBUG")
             return True
         except subprocess.CalledProcessError as e:
-            self._log(f"  [!] {mod_name} — ERROR creating symlink: {e.stderr}", "ERROR")
+            self._log(f"  [!] {mod_name} — ERROR creating junction: {e.stderr}", "ERROR")
             return False
         except Exception as e:
             self._log(f"  [!] {mod_name} — ERROR: {e}", "ERROR")
             return False
+
+    def _create_symlink(self, mod_name: str, source: Path, target: Path) -> bool:
+        """Создать junction симлинк target → source"""
+        if target.exists():
+            return True
+        if not self._mklink_junction(mod_name, source, target):
+            return False
+        self._log(f"  [+] {mod_name} — symlink created", "DEBUG")
+        return True
 
     def _get_mods_with_ids(self, server: dict) -> list:
         """Legacy alias for compatibility with existing call sites."""
@@ -330,20 +341,8 @@ class ModSync:
             )
             self._remove_workshop_alias(workshop_mod)
 
-        try:
-            cmd = f'mklink /J "{workshop_mod}" "{mod_source}"'
-            subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        if self._mklink_junction(mod_name, mod_source, workshop_mod):
             self._log(f"  [+] {mod_name} — Workshop junction → content\\{mod_id}", "INFO")
-        except subprocess.CalledProcessError as e:
-            self._log(f"  [!] {mod_name} — ERROR creating junction: {e.stderr}", "ERROR")
-        except Exception as e:
-            self._log(f"  [!] {mod_name} — ERROR: {e}", "ERROR")
 
     def _ensure_server_symlink(self, mod_name: str, workshop_mod: Path, server_mod: Path):
         """Создать/проверить симлинк папки сервера @ModName → !Workshop\@ModName"""
@@ -355,21 +354,8 @@ class ModSync:
             self._log(f"  [!] {mod_name} — Workshop source not found, cannot create server symlink", "WARN")
             return
 
-        try:
-            # mklink /J "server\@ModName" "!Workshop\@ModName"
-            cmd = f'mklink /J "{server_mod}" "{workshop_mod}"'
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True
-            )
+        if self._mklink_junction(mod_name, workshop_mod, server_mod):
             self._log(f"  [+] {mod_name} — Server symlink created", "DEBUG")
-        except subprocess.CalledProcessError as e:
-            self._log(f"  [!] {mod_name} — ERROR creating symlink: {e.stderr}", "ERROR")
-        except Exception as e:
-            self._log(f"  [!] {mod_name} — ERROR: {e}", "ERROR")
 
     def _create_junction(self, mod_name: str, workshop_mod: Path, server_mod: Path) -> bool:
         """Создать junction symlink (как mklink /J)"""
@@ -381,24 +367,10 @@ class ModSync:
             self._log(f"  [!] {mod_name} - NOT FOUND in Workshop!", "WARN")
             return False
 
-        try:
-            # mklink /J "server\mod" "workshop\mod"
-            cmd = f'mklink /J "{server_mod}" "{workshop_mod}"'
-            result = subprocess.run(
-                cmd,
-                shell=True,
-                check=True,
-                capture_output=True,
-                text=True
-            )
-            self._log(f"  [+] {mod_name} - junction created", "DEBUG")
-            return True
-        except subprocess.CalledProcessError as e:
-            self._log(f"  [!] {mod_name} - ERROR creating junction: {e.stderr}", "ERROR")
+        if not self._mklink_junction(mod_name, workshop_mod, server_mod):
             return False
-        except Exception as e:
-            self._log(f"  [!] {mod_name} - ERROR: {e}", "ERROR")
-            return False
+        self._log(f"  [+] {mod_name} - junction created", "DEBUG")
+        return True
 
     def _copy_keys(self, mod_name: str, workshop_mod: Path, keys_dir: Path):
         """Копировать .bikey файлы"""

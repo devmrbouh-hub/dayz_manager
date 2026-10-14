@@ -100,13 +100,7 @@
   "scheduler": {
     "mod_check_interval": 600,
     "log_clean_interval": 86400,
-    "restart_schedule": [
-      {
-        "server_id": "server1",
-        "time": "04:00",
-        "days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-      }
-    ]
+    "restart_schedule": []
   },
 
   "notifications": {

@@ -28,14 +28,14 @@ DayZ Manager is currently a **host-local admin tool**. Treat the built-in UI/API
 
 Interval: `settings.watchdog_interval` (default 10 s).
 
-For each server with `auto_restart: true`:
+The first poll after the manager starts only remembers whether the process is already up. A server that is already stopped is left stopped. Later, for each server with `auto_restart: true`:
 
 1. Check `SERVER_LOCK` — skip if present (restart or mod-update in progress).
-2. `is_running`: PID file + process exe path under `servers[].path` (and cwd fallback); not any `DayZServer` on the host. Manual start from the server folder may restore PID. With multiple servers on one machine, each instance is matched by its own exe path.
-3. If dead → `afterStop` → `prepare_server_for_start` → `beforeStart` → `start_server`.
+2. `is_running`: PID file + process exe path under `servers[].path` (and cwd fallback); not any `DayZServer` on the host. Manual start from the server folder may restore PID. With multiple servers on one machine, each instance is matched by its own exe path. While a stop is in progress the manager does not write that PID back.
+3. If this session has seen the server running and the process then disappears → `afterStop` → `prepare_server_for_start` → `beforeStart` → `start_server`.
 4. If alive → refresh PID file.
 
-File `.stopped` in server folder blocks auto-start until admin presses Start (or start clears flag on error).
+File `.stopped` is written only by the Stop button and by **Shutdown** in the manager header. A planned or mod restart does not create it. The flag blocks auto-start until a confirmed Start or Restart. Closing the manager window does not stop game servers. **Shutdown** stops the scheduler first, stops each server, then exits the process. A second `DayZManager.exe` exits if the first one is still alive (`data/manager.pid`).
 
 ## SERVER_LOCK
 
@@ -62,8 +62,8 @@ POST /api/servers/{id}/start
   → release_lock
 ```
 
-On failed start `.stopped` is cleared so WatchDog can retry.
-If the process was spawned but never reached confirmed `running`, the manager now terminates that child process, clears `server.pid`, and ends temporary watcher sessions before returning failure.
+A failed start leaves `.stopped` as it was. The flag is removed only after `wait_until_running` succeeds.
+If the process was spawned but never reached confirmed `running`, the manager terminates that child process, clears `server.pid`, and ends temporary watcher sessions before returning failure.
 
 ## Mod updates
 
@@ -77,7 +77,7 @@ Only **numeric** IDs get auto-update; otherwise mod is in launch but not updated
 
 1. Compare `time_updated` via Steam Web API (`data/mod_versions.json`). Cache keys are **`w:{workshop_id}`** — one entry per Workshop item for all servers on the host (shared `content/221100/<id>` folder). Legacy `server_id:mod_id` keys are migrated on load (**minimum** timestamp per mod).
 2. Detection compares Steam API `time_updated` to the shared cache only (no PBO hashing; file mtime is not used).
-3. On updates: RCON warning → shutdown (or force-stop) → SteamCMD download → junction/keys → restart if was online.
+3. On updates the manager records a group restart time (`restart_notify_minutes`). Chat `say` does not move that time and does not choose `taskkill`. At the time, `SERVER_LOCK` covers stop, one SteamCMD download, and start of the servers that were online. A failed download starts those servers again with the lock still held. A successful mod restart clears a planned T-0 debt for that server so the same slot does not restart twice.
 4. **Skip / fallback:** skip SteamCMD when cache matches Workshop and the content folder is non-empty; if SteamCMD fails but the folder exists, accept on-disk content (WARN) **without** updating the cache so ModCheck can retry.
 5. If an admin updated mods via the **Steam client**, ModCheck may still schedule a cycle until a successful SteamCMD sync updates the cache.
 
@@ -145,7 +145,7 @@ Module `ServerRptWatcher` — one background thread per server, reads `{path}/{p
 - **RPT discovery:** search does not stop at 30s; at 30s the UI may show `rpt_not_found` while the watcher keeps looking until `max(60, settings.startup_ready_timeout_sec)`. A late-created RPT is attached and the warning clears. Fallback accepts the newest RPT within a grace window (~120s mtime) when the file appears slowly after start.
 - **Lazy attach:** DayZ already running — attach latest RPT on `GET /api/servers`.
 - Console: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); start only via manager.
-- Live stats: FPS from RPT; players — RCON `players` every ~5 s (quiet on success; no per-poll lines in manager log). The `players` reply is decoded as cp866, cp1251, and UTF-8; the decoding with the most parsed rows is kept (cp866 on a tie). **Refresh players** on the card forces one poll; chat — Expansion ExpLog tail.
+- Live stats: FPS from RPT; players — RCON `players` every ~5 s (quiet on success; no per-poll lines in manager log). The `players` reply is decoded as cp866, cp1251, and UTF-8; the decoding with the most parsed rows is kept (cp866 on a tie). Verified on the host on 2026-10-14: the card count matches players online. **Refresh players** on the card forces one poll; chat — Expansion ExpLog tail.
 
 ## Web UI
 

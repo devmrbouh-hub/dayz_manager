@@ -94,15 +94,21 @@ async def start_server(server_id: str, request: Request, _: bool = Depends(requi
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
 
-    prepared, mods_string = components['server_mgr'].prepare_server_for_start(server)
-    if not prepared:
+    def _start():
+        prepared, mods_string = components['server_mgr'].prepare_server_for_start(server)
+        if not prepared:
+            return "prepare"
+        if components['server_mgr'].start_server(server, mods_string):
+            return "ok"
+        return "start"
+
+    outcome = await asyncio.to_thread(_start)
+    if outcome == "prepare":
         raise HTTPException(
             status_code=500,
             detail=f"Failed to prepare mods before starting server '{server_id}'"
         )
-
-    # Запустить
-    success = components['server_mgr'].start_server(server, mods_string)
+    success = outcome == "ok"
 
     if success:
         return {"message": f"Server '{server_id}' started"}
@@ -119,7 +125,11 @@ async def stop_server(server_id: str, request: Request, _: bool = Depends(requir
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
 
-    success = components['server_mgr'].stop_server(server)
+    success = await asyncio.to_thread(
+        components['server_mgr'].stop_server,
+        server,
+        "manual",
+    )
 
     if success:
         return {"message": f"Server '{server_id}' stopped"}
@@ -136,15 +146,21 @@ async def restart_server(server_id: str, request: Request, _: bool = Depends(req
     if not server:
         raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
 
-    prepared, mods_string = components['server_mgr'].prepare_server_for_start(server)
-    if not prepared:
+    def _restart():
+        prepared, mods_string = components['server_mgr'].prepare_server_for_start(server)
+        if not prepared:
+            return "prepare"
+        if components['server_mgr'].restart_server(server, mods_string):
+            return "ok"
+        return "restart"
+
+    outcome = await asyncio.to_thread(_restart)
+    if outcome == "prepare":
         raise HTTPException(
             status_code=500,
             detail=f"Failed to prepare mods before restarting server '{server_id}'"
         )
-
-    # Перезапустить
-    success = components['server_mgr'].restart_server(server, mods_string)
+    success = outcome == "ok"
 
     if success:
         return {"message": f"Server '{server_id}' restarted"}
@@ -482,23 +498,28 @@ async def shutdown_manager(request: Request, _: bool = Depends(require_api_key))
 
     logger.info("Shutdown requested via API")
 
-    # Остановить все серверы
-    servers = components['config'].servers
-    for server in servers:
-        try:
-            if components['server_mgr'].is_running(server):
+    if getattr(request.app.state, "shutdown_task", None):
+        return {"message": "Manager shutting down"}
+
+    async def _shutdown_and_exit():
+        # Сначала планировщик, чтобы WatchDog не поднял сервер во время остановки.
+        scheduler = getattr(request.app.state, "scheduler", None)
+        live_stats = getattr(request.app.state, "live_stats", None)
+        if live_stats:
+            await live_stats.stop()
+        if scheduler:
+            await scheduler.stop()
+
+        server_mgr = components['server_mgr']
+        for server in list(components['config'].servers):
+            try:
                 logger.info(f"Stopping {server['id']}...")
-                components['server_mgr'].stop_server(server, force=True)
-        except Exception as e:
-            logger.error(f"Error stopping {server['id']}: {e}")
+                await asyncio.to_thread(server_mgr.stop_server, server, "manual")
+            except Exception as e:
+                logger.error(f"Error stopping {server['id']}: {e}")
 
-    # Запланировать выход
-    import asyncio
-    async def delayed_exit():
-        await asyncio.sleep(1)
-        import os
-        os._exit(0)
+        import signal
+        signal.raise_signal(signal.SIGINT)
 
-    asyncio.create_task(delayed_exit())
-
+    request.app.state.shutdown_task = asyncio.create_task(_shutdown_and_exit())
     return {"message": "Manager shutting down"}

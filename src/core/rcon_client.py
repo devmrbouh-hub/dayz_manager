@@ -2,11 +2,11 @@
 
 import subprocess
 import asyncio
-import concurrent.futures
 import os
 import re
 import threading
 import time
+from collections import defaultdict
 from typing import Callable, List, Optional, Tuple
 
 
@@ -32,6 +32,8 @@ class RconClient:
         self._chat_inject: Optional[Callable[..., None]] = None
         self._empty_players_lock = threading.Lock()
         self._empty_players_logged = set()
+        # Один bercon на host:port. Lock только здесь, снаружи его не держать.
+        self._endpoint_locks: dict[tuple, threading.Lock] = defaultdict(threading.Lock)
 
     def set_chat_inject(self, callback: Callable[..., None]):
         """callback(server, text, player=..., channel=...) after successful say."""
@@ -172,6 +174,18 @@ class RconClient:
             self._log(message, "ERROR")
             return False, message, 'client_missing'
 
+        with self._endpoint_locks[(host, int(port))]:
+            return self._execute_unlocked(host, port, password, command, timeout, bercon_path)
+
+    def _execute_unlocked(
+        self,
+        host: str,
+        port: int,
+        password: str,
+        command: str,
+        timeout: int,
+        bercon_path: str,
+    ) -> Tuple[bool, str, str]:
         try:
             cmd = [
                 bercon_path,
@@ -228,14 +242,8 @@ class RconClient:
         return success
 
     async def send_command_async(self, host: str, port: int, password: str, command: str) -> bool:
-        """Отправить RCON команду (асинхронно)"""
-        loop = asyncio.get_event_loop()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            return await loop.run_in_executor(
-                executor,
-                self.send_command,
-                host, port, password, command
-            )
+        """Отправить RCON команду (асинхронно). Очередь host:port внутри _execute."""
+        return await asyncio.to_thread(self.send_command, host, port, password, command)
 
     def send_message(self, host: str, port: int, password: str, message: str, timeout: int = 10) -> bool:
         """Отправить сообщение всем игрокам (say -1)"""

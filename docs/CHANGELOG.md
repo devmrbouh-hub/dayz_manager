@@ -2,9 +2,18 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-10-14 — Process control
+
+- **WatchDog** restarts a server only after this manager session has seen it running. The first poll does not start a server that is already stopped. `.stopped` is written only by Stop and by manager Shutdown.
+- **Shutdown** stops the scheduler, then the game servers, then the process. Closing the window leaves game servers running. A second manager process exits while the first is alive.
+- **Mod updates and planned T-0** do not depend on chat `say`. A missed T-0 stays owed until it succeeds, and a successful mod restart clears that debt. RCON commands for one host:port run one at a time.
+
+---
+
 ## 2026-10-14 — v1.0.8 Player list encoding
 
 - **RCON `players`:** try cp866, cp1251, and UTF-8 and keep the decoding that yields the most player rows (cp866 on a tie). One WARN with a raw-byte snippet when a non-empty reply still parses to nobody.
+- **Verified on the host (2026-10-14):** the server card shows the online player count again after upgrading to v1.0.8.
 
 ---
 

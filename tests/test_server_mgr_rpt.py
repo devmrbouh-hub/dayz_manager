@@ -76,7 +76,7 @@ def test_start_confirm_failure_terminates_process_and_clears_pid(mgr_setup):
 def test_stop_calls_end_session(mgr_setup):
     mgr, server, rpt, tmp_path = mgr_setup
     with patch.object(mgr, "is_running", return_value=False):
-        mgr.stop_server(server, force=True)
+        mgr.stop_server(server, mode="force")
     rpt.end_session.assert_called_once_with(server["id"])
 
 
@@ -160,5 +160,5 @@ def test_restart_aborts_if_server_still_running_after_stop(mgr_setup):
          patch("src.core.server_mgr.time.sleep"):
         assert mgr.restart_server(server, "mod") is False
 
-    stop_mock.assert_called_once_with(server)
+    stop_mock.assert_called_once_with(server, mode="restart")
     start_mock.assert_not_called()

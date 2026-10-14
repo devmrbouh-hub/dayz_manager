@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
 from src.core.config import Config
+from src.core.runtime_paths import get_runtime_data_file
 from src.core.server_mgr import ServerManager
 from src.core.server_rpt_watcher import ServerRptWatcher
 from src.core.server_chat_watcher import ServerChatWatcher
@@ -60,6 +61,60 @@ live_stats = None
 # События
 # ============================================================
 
+def _pid_is_this_manager(pid: int) -> bool:
+    """Живой процесс с тем же exe. В исходниках ещё и запуск src/main.py."""
+    import psutil
+
+    try:
+        proc = psutil.Process(pid)
+        if not proc.is_running():
+            return False
+        exe = str(Path(proc.exe()).resolve()).lower()
+        expected = str(Path(sys.executable).resolve()).lower()
+        if exe != expected:
+            return False
+        if getattr(sys, "frozen", False):
+            return True
+        command = " ".join(proc.cmdline()).replace("\\", "/").lower()
+        return "src/main.py" in command
+    except (psutil.Error, OSError, ValueError):
+        return False
+
+
+def acquire_manager_instance() -> bool:
+    """Один экземпляр. Файл создаётся через open('x'). Мёртвый и чужой pid не держат блокировку."""
+    path = get_runtime_data_file("manager.pid")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        try:
+            existing = int(path.read_text(encoding="utf-8").strip())
+        except (OSError, ValueError):
+            existing = 0
+        if existing == os.getpid():
+            return True
+        if existing and _pid_is_this_manager(existing):
+            return False
+        try:
+            path.unlink()
+        except OSError:
+            return False
+    try:
+        with path.open("x", encoding="utf-8") as handle:
+            handle.write(str(os.getpid()))
+    except FileExistsError:
+        return False
+    return True
+
+
+def release_manager_instance() -> None:
+    path = get_runtime_data_file("manager.pid")
+    try:
+        existing = int(path.read_text(encoding="utf-8").strip())
+    except (OSError, ValueError):
+        return
+    if existing == os.getpid():
+        path.unlink(missing_ok=True)
+
 @app.on_event("startup")
 async def startup():
     """При запуске"""
@@ -84,6 +139,10 @@ async def startup():
             "Unsafe auth.api_key in config/config.json. "
             "Set a non-default API key before startup."
         )
+
+    if not acquire_manager_instance():
+        print("DayZ Server Manager is already running")
+        raise SystemExit(1)
 
     # Сохранить в app.state для API
     app.state.config = config
@@ -173,7 +232,7 @@ async def startup():
 
 @app.on_event("shutdown")
 async def shutdown():
-    """При остановке"""
+    """Закрытие окна менеджера. Игровые серверы здесь не останавливаются."""
     global scheduler, rpt_watcher, chat_watcher, live_stats
 
     if logger:
@@ -193,6 +252,8 @@ async def shutdown():
 
     if logger:
         logger.info("DayZ Server Manager stopped")
+
+    release_manager_instance()
 
 
 # ============================================================
@@ -360,14 +421,16 @@ def main():
     web_host = cfg.get('web.host', '0.0.0.0')
     web_port = cfg.get('web.port', 8000)
 
-    # Запустить uvicorn
-    uvicorn.run(
-        app,
-        host=web_host,
-        port=web_port,
-        reload=False,
-        log_level="info"
-    )
+    try:
+        uvicorn.run(
+            app,
+            host=web_host,
+            port=web_port,
+            reload=False,
+            log_level="info"
+        )
+    finally:
+        release_manager_instance()
 
 
 if __name__ == "__main__":

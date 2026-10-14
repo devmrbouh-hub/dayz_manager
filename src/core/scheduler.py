@@ -2,7 +2,7 @@
 
 import asyncio
 import functools
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, Set
 
 from src.core.planned_restart import (
@@ -50,6 +50,10 @@ class Scheduler:
         self._running = False
         self._planned_locked_servers: Set[str] = set()
         self._planned_kick_state: dict = {}
+        # Долг слота T-0, если в его минуту сервер был занят. Не путать с окном кика.
+        self._owed_planned: dict = {}
+        # Групповое обновление модов: время рестарта не зависит от say.
+        self._mod_groups: list = []
 
     def _log(self, message: str, level: str = "INFO"):
         if self.logger:
@@ -242,18 +246,38 @@ class Scheduler:
         for server in self.config.servers:
             if not is_planned_restart_enabled(server):
                 continue
+            planned = normalize_planned_restart(server.get('planned_restart'))
+            interval = int(planned['interval_minutes'])
+            if minutes_until_next_restart(interval, now) != RESTART_STAGE:
+                continue
+            slot_key = restart_slot_key(interval, now)
+            if slot_key:
+                self._owed_planned[server['id']] = slot_key
 
-            if self.server_mgr.is_locked(server):
-                self._log(
-                    f"Planned restart stage skipped for {server['id']}: SERVER_LOCK active",
-                    "WARN",
-                )
+        # Модовый рестарт в этот же тик закрывает долг T-0, чтобы не рестартовать дважды.
+        await self._service_mod_restarts()
+
+        for server in self.config.servers:
+            if not is_planned_restart_enabled(server):
                 continue
 
             planned = normalize_planned_restart(server.get('planned_restart'))
             interval = int(planned['interval_minutes'])
             server_id = server['id']
             minutes_until = minutes_until_next_restart(interval, now)
+
+            if self.server_mgr.is_locked(server):
+                if server_id in self._owed_planned:
+                    self._log(
+                        f"Planned restart for {server_id} waits: SERVER_LOCK active",
+                        "WARN",
+                    )
+                else:
+                    self._log(
+                        f"Planned restart stage skipped for {server_id}: SERVER_LOCK active",
+                        "WARN",
+                    )
+                continue
 
             for stage in applicable_warning_stages(interval):
                 if minutes_until == stage:
@@ -262,8 +286,10 @@ class Scheduler:
             if LOCK_KICK_STAGE < interval and in_kick_window(minutes_until):
                 await self._run_planned_kick_window(server, interval, minutes_until, now)
 
-            if minutes_until == RESTART_STAGE:
-                await self._run_planned_stage(server, RESTART_STAGE, now)
+            if server_id in self._owed_planned:
+                restarted = await self.execute_planned_restart(server_id)
+                if restarted:
+                    self._owed_planned.pop(server_id, None)
 
         await self._cron_restart_job()
 
@@ -341,10 +367,7 @@ class Scheduler:
 
         try:
             if stage == RESTART_STAGE:
-                if not self._mark_stage_fired(now, server_id, stage):
-                    return
-                self._log(f"Planned restart stage T-{stage} for {server_id}", "INFO")
-                await self.execute_planned_restart(server_id)
+                # T-0 идёт через _owed_planned, отметка только после успешного рестарта.
                 return
 
             if not self.rcon or not self.server_mgr.is_running(server):
@@ -412,21 +435,27 @@ class Scheduler:
                 if total >= 0 and (total == 0 or kicked == total):
                     state['kick_done'] = True
 
+        restarted = False
         try:
             mods_string = await loop.run_in_executor(None, self.mod_sync.sync_mods, server)
-            await loop.run_in_executor(
+            restarted = await loop.run_in_executor(
                 None,
                 self.server_mgr.restart_server,
                 server,
                 mods_string,
             )
-            self._log(f"Planned restart completed for {server_id}", "INFO")
+            if restarted:
+                self._log(f"Planned restart completed for {server_id}", "INFO")
+            else:
+                self._log(f"Planned restart failed for {server_id}", "ERROR")
         except Exception as e:
             self._log(f"Planned restart failed for {server_id}: {e}", "ERROR")
-            if unlock_needed and self.rcon and self.server_mgr.is_running(server):
-                await loop.run_in_executor(None, self.rcon.unlock_server, server)
-        finally:
+            restarted = False
+        if not restarted and unlock_needed and self.rcon and self.server_mgr.is_running(server):
+            await loop.run_in_executor(None, self.rcon.unlock_server, server)
+        if restarted:
             self._planned_locked_servers.discard(server_id)
+        return bool(restarted)
 
     async def _cron_restart_job(self):
         """Проверить restart_schedule и запустить cron_restart для due-слотов."""
@@ -447,6 +476,11 @@ class Scheduler:
 
             fired_key = f"{today_prefix} {now.strftime('%H:%M')}:{server_id}"
             if fired_key in self._cron_fired:
+                continue
+
+            server = self.config.get_server(server_id)
+            if server and is_planned_restart_enabled(server):
+                self._cron_fired.add(fired_key)
                 continue
 
             self._cron_fired.add(fired_key)
@@ -523,7 +557,7 @@ class Scheduler:
         update_groups = self._build_update_groups(servers, status_map)
         for group in update_groups:
             try:
-                await self._process_update_group(group, server_by_id, status_map, notify_minutes)
+                await self._schedule_update_group(group, server_by_id, notify_minutes)
             except Exception as e:
                 group_label = ', '.join(group['server_ids'])
                 self._log(f"Shared mod update group error for {group_label}: {e}", "ERROR")
@@ -612,7 +646,168 @@ class Scheduler:
 
         return groups
 
-    async def _process_update_group(self, group: dict, server_by_id: dict, status_map: dict, notify_minutes: int):
+    def _clear_planned_debt(self, server_id: str):
+        """Модовый stop/start уже перезапустил сервер: плановый долг этого слота не повторять."""
+        if server_id in self._owed_planned:
+            self._owed_planned.pop(server_id, None)
+            self._log(f"Planned restart debt cleared for {server_id} after mod restart", "INFO")
+
+    async def _schedule_update_group(self, group: dict, server_by_id: dict, notify_minutes: int):
+        """Записать групповой рестарт. Паузу здесь не спать и SERVER_LOCK не держать."""
+        from src.core.steamcmd import SteamCMD
+
+        servers = [server_by_id[server_id] for server_id in group['server_ids']]
+        group_label = ', '.join(group['server_ids'])
+        mod_names = [group['mods'][mod_id] for mod_id in sorted(group['mods'])]
+        self._log(
+            f"Mod updates found for {group_label}: {', '.join(mod_names)}",
+            "WARN",
+        )
+
+        steamcmd = SteamCMD(self.config, self.logger)
+        if not steamcmd.is_installed():
+            self._log(f"SteamCMD not installed, skipping mod check for {group_label}", "WARN")
+            return
+
+        pending_ids = set()
+        for existing in self._mod_groups:
+            pending_ids.update(existing['server_ids'])
+        if any(server_id in pending_ids for server_id in group['server_ids']):
+            self._log(f"Mod restart already scheduled for {group_label}", "INFO")
+            return
+
+        loop = asyncio.get_event_loop()
+        was_running = {}
+        any_running = False
+        for server in servers:
+            running = await loop.run_in_executor(None, self.server_mgr.is_running, server)
+            was_running[server['id']] = bool(running)
+            if running:
+                any_running = True
+            else:
+                self._log(
+                    f"Server {server['id']} is offline, it will stay offline after shared mod update",
+                    "INFO",
+                )
+        if not any_running:
+            return
+
+        minutes = max(int(notify_minutes), 0)
+        restart_at = datetime.now() + timedelta(minutes=minutes)
+        self._mod_groups.append({
+            'server_ids': list(group['server_ids']),
+            'mods': dict(group['mods']),
+            'server_mod_ids': {
+                server_id: set(mod_ids)
+                for server_id, mod_ids in group['server_mod_ids'].items()
+            },
+            'was_running': was_running,
+            'restart_at': restart_at,
+            'say_sent': False,
+            'say_ok': set(),
+            'notify_minutes': minutes,
+        })
+        self._log(
+            f"Mod restart scheduled for {group_label} at {restart_at.strftime('%Y-%m-%d %H:%M')}",
+            "INFO",
+        )
+
+    async def _service_mod_restarts(self):
+        """Тик: say не сдвигает restart_at. В срок один stop/start под SERVER_LOCK."""
+        if not self._mod_groups or not self.server_mgr:
+            return
+
+        now = datetime.now()
+        server_by_id = {server['id']: server for server in self.config.servers}
+        pending = []
+        for group in self._mod_groups:
+            if not group.get('say_sent') and now < group['restart_at']:
+                if await self._say_mod_group(group, server_by_id):
+                    group['say_sent'] = True
+            if now >= group['restart_at']:
+                done = await self._process_update_group(
+                    group,
+                    server_by_id,
+                    {},
+                    group.get('notify_minutes', 0),
+                )
+                if not done:
+                    pending.append(group)
+            else:
+                pending.append(group)
+        self._mod_groups = pending
+
+    async def _say_mod_group(self, group: dict, server_by_id: dict) -> bool:
+        """Предупреждение в чат. Неудача не меняет время рестарта и не включает taskkill."""
+        if not self.rcon:
+            return False
+
+        say_ok = group.setdefault('say_ok', set())
+        names = [group['mods'][mod_id] for mod_id in sorted(group['mods'])]
+        loop = asyncio.get_event_loop()
+        all_ok = True
+        for server_id in group['server_ids']:
+            if not group.get('was_running', {}).get(server_id):
+                continue
+            if server_id in say_ok:
+                continue
+            server = server_by_id.get(server_id)
+            if not server:
+                continue
+            notified = await loop.run_in_executor(
+                None,
+                functools.partial(
+                    self.rcon.notify_restart,
+                    server,
+                    group.get('notify_minutes', 0),
+                    names,
+                ),
+            )
+            if notified:
+                say_ok.add(server_id)
+            else:
+                all_ok = False
+                self._log(
+                    f"RCON notify failed for {server_id}; mod restart time unchanged",
+                    "WARN",
+                )
+        return all_ok
+
+    async def _stop_for_mods(self, server: dict) -> bool:
+        """Остановка ради обновления модов: режим restart, без .stopped."""
+        loop = asyncio.get_event_loop()
+        stop_ok = await loop.run_in_executor(
+            None,
+            functools.partial(self.server_mgr.stop_server, server, "restart"),
+        )
+        if stop_ok:
+            return True
+        self._log(
+            f"Controlled stop failed for {server['id']}, forcing stop before shared mod download",
+            "WARN",
+        )
+        return await loop.run_in_executor(
+            None,
+            functools.partial(self.server_mgr.stop_server, server, "force"),
+        )
+
+    async def _restore_stopped_servers(self, servers: list, was_running: dict, stopped_ids: set) -> None:
+        loop = asyncio.get_event_loop()
+        for server in servers:
+            server_id = server['id']
+            if server_id not in stopped_ids:
+                continue
+            mods_string = await loop.run_in_executor(None, self.mod_sync.sync_mods, server)
+            started = await loop.run_in_executor(
+                None,
+                functools.partial(self.server_mgr.start_server_lock_held, server, mods_string),
+            )
+            if started:
+                self._log(f"Server {server_id} restored after failed mod update", "WARN")
+            else:
+                self._log(f"Failed to restore server {server_id} after failed mod update", "ERROR")
+
+    async def _process_update_group(self, group: dict, server_by_id: dict, status_map: dict, notify_minutes: int) -> bool:
         from src.core.hooks import Hooks
         from src.core.steamcmd import SteamCMD
 
@@ -635,7 +830,7 @@ class Scheduler:
         steamcmd = SteamCMD(self.config, self.logger)
         if not steamcmd.is_installed():
             self._log(f"SteamCMD not installed, skipping mod check for {group_label}", "WARN")
-            return
+            return True
 
         locked_servers = [server['id'] for server in servers if self.server_mgr.is_locked(server)]
         if locked_servers:
@@ -643,7 +838,7 @@ class Scheduler:
                 f"Skipping shared mod update for {group_label}: SERVER_LOCK active on {', '.join(locked_servers)}",
                 "WARN"
             )
-            return
+            return False
 
         locked_for_update = []
         for server in servers:
@@ -654,133 +849,49 @@ class Scheduler:
                 )
                 for locked_server in locked_for_update:
                     self.server_mgr.release_lock(locked_server)
-                return
+                return False
             locked_for_update.append(server)
 
         try:
+            recorded = group.get('was_running')
             server_was_running = {}
-            rcon_available = {}
-            any_notified = False
-            any_running = False
-
             for server in servers:
                 server_id = server['id']
-                was_running = await loop.run_in_executor(
-                    None,
-                    self.server_mgr.is_running,
-                    server
-                )
-                server_was_running[server_id] = was_running
-
-                if not was_running:
-                    self._log(
-                        f"Server {server_id} is offline, it will stay offline after shared mod update",
-                        "INFO"
-                    )
-                    continue
-
-                any_running = True
-                rcon_status = await loop.run_in_executor(
-                    None,
-                    self.rcon.test_server,
-                    server
-                )
-                rcon_available[server_id] = bool(rcon_status.get('success'))
-
-                if not rcon_available[server_id]:
-                    self._log(
-                        f"RCON unavailable for {server_id}, using force-stop path: {rcon_status.get('message', 'unknown error')}",
-                        "WARN"
-                    )
-                    continue
-
-                server_mod_names = [
-                    entry.get('name', '')
-                    for entry in (status_map.get(server_id) or {}).get('updated_entries', [])
-                ]
-                notified = await loop.run_in_executor(
-                    None,
-                    functools.partial(
-                        self.rcon.notify_restart,
-                        server,
-                        notify_minutes,
-                        server_mod_names,
-                    )
-                )
-                if notified:
-                    any_notified = True
+                if recorded is not None:
+                    server_was_running[server_id] = bool(recorded.get(server_id))
                 else:
-                    rcon_available[server_id] = False
-                    self._log(
-                        f"RCON notify failed for {server_id}, using force-stop path without wait",
-                        "WARN"
-                    )
+                    server_was_running[server_id] = bool(await loop.run_in_executor(
+                        None,
+                        self.server_mgr.is_running,
+                        server,
+                    ))
 
-            if any_running and any_notified:
+            stopped_ids = set()
+            abort_download = False
+            for server in servers:
+                server_id = server['id']
+                if not server_was_running.get(server_id):
+                    continue
+                if await self._stop_for_mods(server):
+                    still_running = await loop.run_in_executor(
+                        None,
+                        self.server_mgr.is_running,
+                        server,
+                    )
+                    if still_running:
+                        abort_download = True
+                    else:
+                        stopped_ids.add(server_id)
+                else:
+                    abort_download = True
+
+            if abort_download:
                 self._log(
-                    f"Waiting {notify_minutes} minutes before shared restart for {group_label}...",
-                    "INFO"
+                    f"Server group {group_label} is still running. Abort shared mod download to avoid file lock.",
+                    "ERROR",
                 )
-                await asyncio.sleep(notify_minutes * 60)
-
-            for server in servers:
-                server_id = server['id']
-                if not server_was_running.get(server_id):
-                    continue
-
-                stop_ok = await loop.run_in_executor(
-                    None,
-                    self.server_mgr.stop_server,
-                    server,
-                    not rcon_available.get(server_id, False)
-                )
-                if not stop_ok:
-                    self._log(
-                        f"Controlled stop failed for {server_id}, forcing stop before shared mod download",
-                        "WARN"
-                    )
-                    await loop.run_in_executor(
-                        None,
-                        self.server_mgr.stop_server,
-                        server,
-                        True
-                    )
-                await asyncio.sleep(5)
-
-            for server in servers:
-                server_id = server['id']
-                if not server_was_running.get(server_id):
-                    continue
-
-                still_running = await loop.run_in_executor(
-                    None,
-                    self.server_mgr.is_running,
-                    server
-                )
-                if still_running:
-                    self._log(
-                        f"Server {server_id} is still running, forcing stop before shared mod download",
-                        "WARN"
-                    )
-                    await loop.run_in_executor(
-                        None,
-                        self.server_mgr.stop_server,
-                        server,
-                        True
-                    )
-                    await asyncio.sleep(5)
-
-                still_running = await loop.run_in_executor(
-                    None,
-                    self.server_mgr.is_running,
-                    server
-                )
-                if still_running:
-                    self._log(
-                        f"Server {server_id} is still running. Abort shared mod download to avoid file lock.",
-                        "ERROR"
-                    )
-                    return
+                await self._restore_stopped_servers(servers, server_was_running, stopped_ids)
+                return True
 
             self._log(
                 f"Downloading updated mods for {group_label} via SteamCMD...",
@@ -811,27 +922,8 @@ class Scheduler:
                     f"Failed to download updated mods for {group_label}: {', '.join(failed_downloads)}",
                     "ERROR"
                 )
-                for server in servers:
-                    server_id = server['id']
-                    if not server_was_running.get(server_id):
-                        continue
-
-                    mods_string = await loop.run_in_executor(
-                        None,
-                        self.mod_sync.sync_mods,
-                        server
-                    )
-                    await loop.run_in_executor(
-                        None,
-                        self.server_mgr.start_server,
-                        server,
-                        mods_string
-                    )
-                    self._log(
-                        f"Server {server_id} restored after failed mod update",
-                        "WARN"
-                    )
-                return
+                await self._restore_stopped_servers(servers, server_was_running, stopped_ids)
+                return True
 
             hooks = Hooks(self.config, self.logger)
             mods_by_server = {}
@@ -857,15 +949,22 @@ class Scheduler:
             for server in servers:
                 server_id = server['id']
                 if server_was_running.get(server_id):
-                    await loop.run_in_executor(
+                    started = await loop.run_in_executor(
                         None,
-                        self.server_mgr.start_server_lock_held,
-                        server,
-                        mods_by_server[server_id]
+                        functools.partial(
+                            self.server_mgr.start_server_lock_held,
+                            server,
+                            mods_by_server[server_id],
+                        ),
                     )
-                    self._log(f"Server {server_id} restarted with updated mods", "INFO")
+                    if started:
+                        self._clear_planned_debt(server_id)
+                        self._log(f"Server {server_id} restarted with updated mods", "INFO")
+                    else:
+                        self._log(f"Server {server_id} failed to restart with updated mods", "ERROR")
                 else:
                     self._log(f"Mods updated for offline server {server_id}", "INFO")
+            return True
         finally:
             for locked_server in locked_for_update:
                 self.server_mgr.release_lock(locked_server)
