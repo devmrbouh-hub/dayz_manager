@@ -2,6 +2,14 @@
 
 **Languages:** [English](../CHANGELOG.md) · [Русский](CHANGELOG.md)
 
+## 2026-10-14 — v1.0.9 Релиз process control
+
+- **Первый Windows EXE после v1.0.8** включает управление процессом с `main`: baseline WatchDog, `.stopped` только Stop/Выключить, один экземпляр через `manager.pid`, API shutdown, модовые рестарты и долг T-0, очередь RCON на host:port.
+- **Доки:** `players/refresh` в ru/API; окно кика 3–5 мин в ROADMAP/CONFIG/TESTING; заголовок v1.0.5 в CHANGELOG; ревью [REVIEW_SINCE_v1.0.5.md](REVIEW_SINCE_v1.0.5.md).
+- **Тесты:** интеграционный тест `POST /api/shutdown`.
+
+---
+
 ## 2026-10-14 — Онбординг
 
 - **README** ведёт к одному Start двумя путями: первая папка DayZ Server или уже готовая папка с bat. `mod_list.txt` — этот список модов. Первичная загрузка модов — лаунчером в ту же библиотеку Steam; ModSync на Start и SteamCMD — связка и обновления. Шаблон хоста не заполняется одним путём и ключом API.
@@ -38,6 +46,8 @@
 - **ModCheck:** детекция только по общему кэшу и Steam API (убрана петля по mtime файлов).
 
 ---
+
+## 2026-10-04 — v1.0.5 Шум RCON и кодировка игроков
 
 - Убран спам RCON `players` при опросе онлайна (ошибки по-прежнему WARN).
 - Вывод bercon-cli на Windows читается как **cp866** — таблица игроков парсится нормально, без `????` в файле.

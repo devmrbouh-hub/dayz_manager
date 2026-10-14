@@ -2,6 +2,14 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-10-14 — v1.0.9 Process control release
+
+- **First Windows EXE after v1.0.8** ships process control already on `main`: WatchDog baseline, `.stopped` only on Stop/Shutdown, `manager.pid` single instance, API shutdown, mod-group restarts vs planned T-0 debt, RCON queue per host:port.
+- **Docs:** RU API `players/refresh`; planned-restart kick window (3–5 min) aligned in ROADMAP/CONFIG/TESTING; CHANGELOG v1.0.5 header; audit [ru/REVIEW_SINCE_v1.0.5.md](ru/REVIEW_SINCE_v1.0.5.md).
+- **Tests:** `POST /api/shutdown` integration test.
+
+---
+
 ## 2026-10-14 — Onboarding
 
 - **README** has two ways into the same Start: a first DayZ Server folder, or an existing folder and bat file. `mod_list.txt` is that mod list. First mod download is via the client launcher into the same Steam library; ModSync on Start and SteamCMD handle linking and updates. The host template is not filled in with only a path and an API key.
@@ -38,6 +46,8 @@
 - **ModCheck:** version detection uses shared cache vs Steam API only (removed file-mtime loop that could repeat download without fixing player mismatches).
 
 ---
+
+## 2026-10-04 — v1.0.5 RCON poll noise and player encoding
 
 - Stop logging every RCON `players` poll (live stats); failures still log as WARN.
 - Read bercon-cli output as **cp866** on Windows so player tables parse correctly (no `????` lines in file logs).

@@ -61,9 +61,9 @@ Planned restart, live stats, чат — проверено на reference-хос
 ### Planned restart
 
 - [x] **1.1** Интервал от 00:00 (`interval_minutes`)
-- [x] **1.2** Этапы T-30 / T-15 / T-10 / T-5 / T-0
+- [x] **1.2** Этапы T-30 / T-15 / T-10 / окно кика T-5…T-3 / T-0
 - [x] **1.3** RU + EN say на каждом этапе
-- [x] **1.4** Lock + kick all на T-5
+- [x] **1.4** Lock + kick all в окне 3–5 мин до слота
 
 ### Web UI и API
 

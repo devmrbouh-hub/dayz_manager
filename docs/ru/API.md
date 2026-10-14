@@ -32,6 +32,7 @@ GET — без ключа. Роли `auth.users` в REST **не использу
 | GET | `/api/servers/{id}/logs/tail` | Последние N строк RPT из буфера (`lines`, max 500) |
 | GET | `/api/servers/{id}/chat` | История игрового чата (`limit`, `since`) |
 | POST | `/api/servers/{id}/chat/say` | Отправить текст всем игрокам (RCON `say -1`) |
+| POST | `/api/servers/{id}/players/refresh` | Принудительный опрос RCON `players` (только если сервер запущен) |
 
 Ответ `GET /api/servers` и `GET /api/servers/{id}` включает:
 
@@ -40,7 +41,7 @@ GET — без ключа. Роли `auth.users` в REST **не использу
 - `startup_phase` — `stopped` | `starting` | `ready`
 - `ready_at`, `current_rpt`, `startup_warning` — см. [CONFIG.md](CONFIG.md)
 - `server_fps` — последний FPS из RPT (`Average server FPS`, округлённо)
-- `player_count`, `max_players`, `players` — онлайн через RCON poll (~5 с)
+- `player_count`, `max_players`, `players` — онлайн через RCON poll (~5 с); для мгновенного обновления — **players/refresh**
 - `rcon_players_ok` — удалось ли получить список игроков
 - `chat_available` — есть каталог Expansion `ExpLog`
 

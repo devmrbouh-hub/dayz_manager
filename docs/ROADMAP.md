@@ -61,9 +61,9 @@ Verified on reference host (2026-05). See [CHANGELOG.md](CHANGELOG.md).
 ### Planned restart
 
 - [x] **1.1** Interval from 00:00 (`interval_minutes`)
-- [x] **1.2** Stages T-30 / T-15 / T-10 / T-5 / T-0
+- [x] **1.2** Stages T-30 / T-15 / T-10 / kick window T-5…T-3 / T-0
 - [x] **1.3** RU + EN say at each stage
-- [x] **1.4** Lock + kick all at T-5
+- [x] **1.4** Lock + kick all in 3–5 min window before slot
 
 ### Web UI and API
 

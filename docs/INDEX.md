@@ -30,6 +30,7 @@ When you change docs, update **both** [docs/](.) and [docs/ru/](ru/) in the same
 | Document | Contents |
 |----------|----------|
 | [CHANGELOG.md](CHANGELOG.md) | History: phase 1 stabilization, phase 2 planned restart |
+| [ru/REVIEW_SINCE_v1.0.5.md](ru/REVIEW_SINCE_v1.0.5.md) | Audit since tag v1.0.5 (Russian) |
 | [TESTING.md](TESTING.md) | Plan T1–T6, T4b planned restart, checklist |
 | [RELEASES.md](RELEASES.md) | Download pre-built EXE from GitHub Releases |
 | [ROADMAP.md](ROADMAP.md) | Stages 0–5: numbered checklist, backlog |

@@ -170,7 +170,7 @@ Planned server restart on interval from midnight (00:00). Configure on server ca
 | interval_minutes | Minutes from 00:00 (240 = every 4 h: 00:00, 04:00, 08:00 …) |
 | test_mode | Allow short interval 10–59 min for tests |
 
-**Stages (RCON):** T-30, T-15, T-10 — say RU+EN; T-5 — say RU+EN, pause 5 s, `#lock`, kick all; T-0 — restart.
+**Stages (RCON):** T-30, T-15, T-10 — say RU+EN; **T-5…T-3 (3–5 min before slot)** — say RU+EN, pause 5 s, `#lock`, kick all (retries every 60 s while in window); T-0 — restart.
 
 Normal mode: `interval_minutes` 60–1440; test mode: 10–59.
 

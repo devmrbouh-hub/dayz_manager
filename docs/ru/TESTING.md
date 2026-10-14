@@ -59,7 +59,7 @@ node --test tests/test_server_status.mjs
 5. После Save — **Next:** показывает `next_restart_at`; значение совпадает с `GET /api/servers/{id}`.
 6. Add Server — только базовые поля; после добавления на карточке есть блок Restart с дефолтами (planned off, 4 h).
 
-**Reference (2026-05-24):** OK — planned restart test mode 15 мин, kick на T-5, UI на карточке.
+**Reference (2026-05-24):** OK — planned restart test mode 15 мин, kick в окне до рестарта, UI на карточке.
 
 ---
 
@@ -82,7 +82,7 @@ node --test tests/test_server_status.mjs
 2. Раскрыть **Игровой чат** — история за 24 ч (если есть в ExpLog), live новые строки; **время** совпадает с локальным.
 3. Ввести текст → **Отправить** — сообщение в игре (RCON `say -1`); в UI метрики FPS/игроков **не** дублируются в чат.
 4. Написать в global chat в игре — строка появляется в блоке чата.
-5. Planned restart — say RU/EN и сообщение перед kick (T-5) видны в ленте.
+5. Planned restart — say RU/EN и сообщение перед kick (окно 3–5 мин) видны в ленте.
 
 **Reference (2026-05-25):** OK.
 
@@ -193,15 +193,15 @@ Server server1 started with PID: ...
 
 1. На карточке сервера в блоке **Restart** или через API включить test mode, `interval_minutes: 15`.
 2. Убедиться, что RCON работает: `POST /api/servers/server1/rcon/test`.
-3. Дождаться этапов T-10, T-5, T-0 (для interval 15 пропускаются T-30 и T-15).
+3. Дождаться T-10, окна кика (T-5…T-3), T-0 (для interval 15 пропускаются T-30 и T-15).
 
 **Ожидание:**
 
-- T-10 / T-5: два say подряд (RU, затем EN) в игровом чате
-- T-5: say → пауза 5 с → `#lock` → kick всех онлайн (сообщение успевают прочитать)
+- T-10: два say подряд (RU, затем EN) в игровом чате
+- Окно кика (3–5 мин до слота): say RU+EN → пауза 5 с → `#lock` → kick всех онлайн (повторы каждые 60 с в окне при необходимости)
 - T-0: сервер перезапущен, PID обновился
 
-**Reference (2026-05-24):** OK — T-10/T-5 say, lock + kick, restart на T-0; bercon-cli table parse для kick.
+**Reference (2026-05-24):** OK — T-10 say, lock + kick в окне, restart на T-0; bercon-cli table parse для kick.
 
 ```powershell
 curl -X PUT http://127.0.0.1:8000/api/servers/server1 `

@@ -30,6 +30,7 @@
 | Документ | Содержание |
 |----------|------------|
 | [CHANGELOG.md](CHANGELOG.md) | История: стабилизация фазы 1, planned restart фазы 2 |
+| [REVIEW_SINCE_v1.0.5.md](REVIEW_SINCE_v1.0.5.md) | Ревью изменений с тега v1.0.5 |
 | [TESTING.md](TESTING.md) | План T1–T6, T4b planned restart, чек-лист |
 | [RELEASES.md](RELEASES.md) | Скачать готовый EXE с GitHub Releases |
 | [ROADMAP.md](ROADMAP.md) | Этапы 0–5: чеклист с нумерацией, backlog |

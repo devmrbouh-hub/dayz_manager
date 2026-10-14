@@ -60,7 +60,7 @@ node --test tests/test_server_status.mjs
 5. After Save — **Next:** shows `next_restart_at`; matches `GET /api/servers/{id}`.
 6. Add Server — basic fields only; new card has Restart defaults (planned off, 4 h).
 
-**Reference (2026-05-24):** OK — planned restart test mode 15 min, kick at T-5.
+**Reference (2026-05-24):** OK — planned restart test mode 15 min, kick in pre-restart window.
 
 ---
 
@@ -193,12 +193,12 @@ Add slot in `config.json` for nearest minute:
 
 1. On card **Restart** or via API enable test mode, `interval_minutes: 15`.
 2. RCON works: `POST /api/servers/server1/rcon/test`.
-3. Wait for T-10, T-5, T-0 (T-30/T-15 skipped at 15 min interval).
+3. Wait for T-10, kick window (T-5…T-3), T-0 (T-30/T-15 skipped at 15 min interval).
 
 **Expected:**
 
-- T-10 / T-5: two says (RU, then EN) in chat
-- T-5: say → 5 s pause → `#lock` → kick all online
+- T-10: two says (RU, then EN) in chat
+- Kick window (3–5 min before slot): say RU+EN → 5 s pause → `#lock` → kick all online (retries every 60 s while still in window if needed)
 - T-0: server restarted, new PID
 
 **Reference (2026-05-24):** OK.
