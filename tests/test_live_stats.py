@@ -63,6 +63,87 @@ def test_parse_players_plain():
     assert players == [{"id": 0, "name": "Mr_BOUH"}]
 
 
+_PLAYER_BOX_LINE = "│ 0 │ 192.168.0.225 │ 55281 │ 0 │ abc123 │ Mr_BOUH │"
+
+
+class _ListLogger:
+    def __init__(self):
+        self.lines = []
+
+    def log(self, message, level="INFO"):
+        self.lines.append((level, message))
+
+
+def test_players_output_prefers_utf8_box_table():
+    raw = _PLAYER_BOX_LINE.encode("utf-8")
+    assert RconClient.parse_players(raw.decode("cp866")) == []
+
+    client = RconClient()
+    chosen = client._choose_players_output(raw, "127.0.0.1", 2305)
+    players = RconClient.parse_players(chosen)
+    assert players[0]["name"] == "Mr_BOUH"
+
+
+def test_players_output_keeps_cp866_box_table():
+    raw = _PLAYER_BOX_LINE.encode("cp866")
+    assert RconClient.parse_players(raw.decode("utf-8", errors="replace")) == []
+
+    client = RconClient()
+    chosen = client._choose_players_output(raw, "127.0.0.1", 2305)
+    assert chosen == raw.decode("cp866")
+    assert RconClient.parse_players(chosen)[0]["name"] == "Mr_BOUH"
+
+
+def test_players_output_keeps_cp1251_plain_row():
+    raw = "0 192.168.0.1:1234 Петр".encode("cp1251")
+    client = RconClient()
+    chosen = client._choose_players_output(raw, "127.0.0.1", 2305)
+    players = RconClient.parse_players(chosen)
+    assert len(players) == 1
+    assert players[0]["id"] == 0
+
+
+def test_players_output_tie_keeps_cp866_text():
+    raw = b"0 192.168.0.1:1234 " + "Иван".encode("cp866")
+    client = RconClient()
+    chosen = client._choose_players_output(raw, "127.0.0.1", 2305)
+    assert chosen == raw.decode("cp866")
+    assert RconClient.parse_players(chosen)[0]["name"] == "Иван"
+
+
+def test_non_players_output_uses_single_encoding():
+    raw = _PLAYER_BOX_LINE.encode("utf-8")
+    client = RconClient()
+    decoded = client._decode_raw(raw, client._bercon_text_encoding())
+    assert "│" not in decoded
+
+
+def test_empty_players_snippet_logs_once_until_players_return():
+    logger = _ListLogger()
+    client = RconClient(logger=logger)
+    garbage = "нет таблицы".encode("utf-8")
+
+    client._choose_players_output(garbage, "10.0.0.8", 2313)
+    client._choose_players_output(garbage, "10.0.0.8", 2313)
+    warns = [message for level, message in logger.lines if level == "WARN"]
+    assert len(warns) == 1
+    assert "cp866=0" in warns[0]
+    assert "cp1251=0" in warns[0]
+    assert "utf-8=0" in warns[0]
+    assert "bytes=" in warns[0]
+    assert "10.0.0.8" in warns[0]
+    assert "2313" in warns[0]
+
+    client._choose_players_output(_PLAYER_BOX_LINE.encode("utf-8"), "10.0.0.8", 2313)
+    client._choose_players_output(garbage, "10.0.0.8", 2313)
+    warns = [message for level, message in logger.lines if level == "WARN"]
+    assert len(warns) == 2
+
+    client._choose_players_output(garbage, "10.0.0.8", 2303)
+    warns = [message for level, message in logger.lines if level == "WARN"]
+    assert len(warns) == 3
+
+
 def test_refresh_server_updates_cache(tmp_path):
     server = make_server(tmp_path)
     config = FakeConfig({"settings": {}, "servers": [server]})

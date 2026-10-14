@@ -2,6 +2,12 @@
 
 **Languages:** [English](CHANGELOG.md) · [Русский](ru/CHANGELOG.md)
 
+## 2026-10-14 — v1.0.8 Player list encoding
+
+- **RCON `players`:** try cp866, cp1251, and UTF-8 and keep the decoding that yields the most player rows (cp866 on a tie). One WARN with a raw-byte snippet when a non-empty reply still parses to nobody.
+
+---
+
 ## 2026-10-11 — v1.0.7 Players refresh and planned kick window
 
 - **Live stats:** shared `_poll_one_server`, per-server RCON lock; `POST /api/servers/{id}/players/refresh` via `asyncio.to_thread`; UI refresh button on each server card.

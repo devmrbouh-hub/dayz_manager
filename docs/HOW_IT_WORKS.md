@@ -145,7 +145,7 @@ Module `ServerRptWatcher` — one background thread per server, reads `{path}/{p
 - **RPT discovery:** search does not stop at 30s; at 30s the UI may show `rpt_not_found` while the watcher keeps looking until `max(60, settings.startup_ready_timeout_sec)`. A late-created RPT is attached and the warning clears. Fallback accepts the newest RPT within a grace window (~120s mtime) when the file appears slowly after start.
 - **Lazy attach:** DayZ already running — attach latest RPT on `GET /api/servers`.
 - Console: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); start only via manager.
-- Live stats: FPS from RPT; players — RCON `players` every ~5 s (quiet on success; no per-poll lines in manager log); **Refresh players** on the card forces one poll; chat — Expansion ExpLog tail.
+- Live stats: FPS from RPT; players — RCON `players` every ~5 s (quiet on success; no per-poll lines in manager log). The `players` reply is decoded as cp866, cp1251, and UTF-8; the decoding with the most parsed rows is kept (cp866 on a tie). **Refresh players** on the card forces one poll; chat — Expansion ExpLog tail.
 
 ## Web UI
 

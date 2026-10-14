@@ -5,6 +5,7 @@ import asyncio
 import concurrent.futures
 import os
 import re
+import threading
 import time
 from typing import Callable, List, Optional, Tuple
 
@@ -12,6 +13,8 @@ from typing import Callable, List, Optional, Tuple
 MOD_NAMES_MAX_LEN = 120
 MESSAGE_PAUSE_SECONDS = 2
 _RCON_QUIET_COMMANDS = frozenset({'players'})
+_PLAYERS_OUTPUT_ENCODINGS = ('cp866', 'cp1251', 'utf-8')
+_EMPTY_PLAYERS_SNIPPET_BYTES = 120
 
 
 DEFAULT_BERCON_PATH = os.path.join(
@@ -27,6 +30,8 @@ class RconClient:
         self.config = config
         self.logger = logger
         self._chat_inject: Optional[Callable[..., None]] = None
+        self._empty_players_lock = threading.Lock()
+        self._empty_players_logged = set()
 
     def set_chat_inject(self, callback: Callable[..., None]):
         """callback(server, text, player=..., channel=...) after successful say."""
@@ -107,6 +112,58 @@ class RconClient:
         """bercon-cli on Windows typically prints OEM (cp866) table output."""
         return 'cp866' if os.name == 'nt' else 'utf-8'
 
+    @staticmethod
+    def _strip_ansi(text: str) -> str:
+        return re.sub(r'\x1b\[[0-9;]*m', '', text or '').strip()
+
+    def _decode_raw(self, raw: bytes, encoding: str) -> str:
+        return self._strip_ansi(raw.decode(encoding, errors='replace'))
+
+    def _players_endpoint_key(self, host: str, port: int) -> str:
+        return f'{host}:{port}'
+
+    def _choose_players_output(self, raw: bytes, host: str, port: int) -> str:
+        """Pick the players-table decoding that yields the most parsed rows.
+
+        cp866, cp1251, and UTF-8 are all tried. On a tie, cp866 wins so an
+        already-working OEM table is left unchanged.
+        """
+        preference = {name: index for index, name in enumerate(_PLAYERS_OUTPUT_ENCODINGS)}
+        decoded = []
+        for encoding in _PLAYERS_OUTPUT_ENCODINGS:
+            text = self._decode_raw(raw, encoding)
+            count = len(self.parse_players(text))
+            decoded.append((count, preference[encoding], encoding, text))
+
+        decoded.sort(key=lambda item: (-item[0], item[1]))
+        best_count, _preference, _encoding, best_text = decoded[0]
+        self._note_players_parse(host, port, raw, decoded, best_count)
+        return best_text
+
+    def _note_players_parse(self, host: str, port: int, raw: bytes, decoded: list, best_count: int):
+        """WARN once per host:port when a non-empty players reply parses to nobody."""
+        key = self._players_endpoint_key(host, port)
+        should_log = False
+        with self._empty_players_lock:
+            if best_count > 0:
+                self._empty_players_logged.discard(key)
+            elif raw and key not in self._empty_players_logged:
+                self._empty_players_logged.add(key)
+                should_log = True
+
+        if not should_log:
+            return
+
+        by_encoding = {encoding: count for count, _pref, encoding, _text in decoded}
+        summary = ', '.join(
+            f'{encoding}={by_encoding[encoding]}' for encoding in _PLAYERS_OUTPUT_ENCODINGS
+        )
+        snippet = repr(raw[:_EMPTY_PLAYERS_SNIPPET_BYTES])
+        self._log(
+            f'RCON players parsed 0 ({summary}) host={host} port={port} bytes={snippet}',
+            'WARN',
+        )
+
     def _execute(self, host: str, port: int, password: str, command: str, timeout: int = 10) -> Tuple[bool, str, str]:
         bercon_path = self._get_bercon_path()
 
@@ -131,14 +188,14 @@ class RconClient:
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True,
                 timeout=timeout,
-                encoding=self._bercon_text_encoding(),
-                errors='replace'
             )
 
-            output = (result.stdout or '') + (result.stderr or '')
-            clean_output = re.sub(r'\x1b\[[0-9;]*m', '', output).strip()
+            raw = (result.stdout or b'') + (result.stderr or b'')
+            if result.returncode == 0 and command == 'players':
+                clean_output = self._choose_players_output(raw, host, port)
+            else:
+                clean_output = self._decode_raw(raw, self._bercon_text_encoding())
 
             if result.returncode == 0:
                 normalized_output = self._normalize_success_output(command, clean_output)

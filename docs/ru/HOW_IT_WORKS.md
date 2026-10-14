@@ -145,7 +145,7 @@ POST /api/servers/{id}/start
 - **Поиск RPT:** не обрывается на 30 с; на 30 с в UI может быть `rpt_not_found`, watcher ищет до `max(60, settings.startup_ready_timeout_sec)`. Поздний RPT подключается, предупреждение снимается. Fallback — newest RPT в grace window (~120 с mtime), если файл появился с задержкой.
 - **Lazy attach:** DayZ уже запущен (ручной старт / рестарт менеджера) — подхват последнего RPT при `GET /api/servers`.
 - Консоль: `hide_console: true` → `CREATE_NO_WINDOW` + `SW_HIDE` (Windows); старт только через менеджер.
-- Live stats: FPS из RPT tail; игроки — RCON `players` каждые ~5 с (успешный опрос без строк в логе менеджера); кнопка **Обновить список** на карточке — принудительный опрос; чат — Expansion ExpLog tail.
+- Live stats: FPS из RPT tail; игроки — RCON `players` каждые ~5 с (успешный опрос без строк в логе менеджера). Ответ `players` читается как cp866, cp1251 и UTF-8; берётся расшифровка с большим числом строк (при равенстве — cp866). Кнопка **Обновить список** на карточке — принудительный опрос; чат — Expansion ExpLog tail.
 
 ## Web UI
 
